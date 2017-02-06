@@ -79,5 +79,23 @@ find_best_feature<- function(analysis_df){
   return(final_feature)
 }
 
+############################################ find_best_ad ############################################ 
+##### input
+#####       df: craetive table
+##### output 
+#####       a dataframe that provides the best ad for the targeted dimension, such as {gender, age}
+find_best_ad<- function(df){
+  dimension<-c('gender','age')
+  impression_threshold=1000
+  
+  grp_cols <- c(dimension,'ad_id') # Columns you want to group by
+  dots <- lapply(grp_cols, as.symbol)# Convert character vector to list of symbols
+  
+  final_df<-df %>% group_by_(.dots=dots) %>% 
+    dplyr::summarise(total_impression=sum(impression), total_click=sum(link_clicks)) %>% 
+    filter(total_impression > impression_threshold) %>%
+    mutate(CTR=total_click/total_impression) %>%
+    group_by_(.dots=dots2) %>% slice(which.max(CTR)) 
 
-
+  return(final_df)
+}

@@ -30,6 +30,8 @@ ad_url$creative_id<-as.character(ad_url$creative_id)
 ###account data summary
 summary_df<- as.data.frame(sort(table(ad_information$account_name),decreasing = TRUE))
 
+
+
 ###########################
 ##### data manipulate ##### 
 ###########################
@@ -72,25 +74,20 @@ etungo_df[etungo_df=="NULL"]<-NA
 
 
 
+
 ########################################
 #####find the best ad for each group ###
 ########################################
-best_ad_age_gender<- etungo_df %>% group_by(gender, age, ad_id) %>% 
-  summarise(total_impression=sum(impression), total_click=sum(link_clicks)) %>% 
-  mutate(CTR=total_click/total_impression) %>% 
-  arrange(gender, age, desc(CTR))
+best_ad_age_gender<- find_best_ad(etungo_df)
 
 
-# my_session_time$Interest <- cut(my_session_time$average_session_min, 
-#                                 breaks = c(0,as.numeric(quantile(my_session_time$average_session_min,0.5)),
-#                                            as.numeric(quantile(my_session_time$average_session_min,0.75)),Inf), 
-#                                 labels = c("輕度興趣族群","中度興趣族群","高"), 
-#                                 right = FALSE) 
-# one possible issue: ad with best CTR may have little impression. How can I decide the best ad?
 
 #################################
 #####create analyzing columns ###
 #################################
+### ad related: title_brand, sub_title_brand, ad_content_brand, title_length_interval, sub_title_length_interval, ad_content_length_interval, call_to_action
+### ad performance related: age, gender, impression, click
+### google vision related: faceCount, majorColor, textInImage, logoInImage, adult, medical, spoof, violence, image category
 
 etungo_df<- etungo_df %>% filter(!is.na(title))
 etungo_df<- analysis_column_generator(etungo_df,'title','sub_title','ad_content',brand_keywords<-c('大同'))
@@ -99,9 +96,6 @@ etungo_df_analysis<- etungo_df %>%
          title_brand, title_length_interval,
          sub_title_brand, sub_title_length_interval,
          ad_content_brand, ad_content_length_interval)
-### ad related: title_brand, sub_title_brand, ad_content_brand, title_length_interval, sub_title_length_interval, ad_content_length_interval, call_to_action
-### ad performance related: age, gender, impression, click
-### google vision related: faceCount, majorColor, textInImage, logoInImage, adult, medical, spoof, violence, image category
 
 
 
