@@ -78,8 +78,7 @@ etungo_df[etungo_df=="NULL"]<-NA
 ########################################
 #####find the best ad for each group ###
 ########################################
-best_ad_age_gender<- find_best_ad(etungo_df)
-
+best_ad_age_gender <- find_best_ad(etungo_df)
 
 
 #################################
@@ -103,5 +102,24 @@ etungo_df_analysis<- etungo_df %>%
 #####find the best feature for each group ###
 #############################################
 final_feature<-find_best_feature(etungo_df_analysis)
+
+
+#############################################
+##### the group_by age plot #################(tony)
+#############################################
+library(rCharts)
+# impression_threshold=1000
+# age_color<- etungo_df %>% group_by(age, majorColor) %>% 
+#   dplyr::summarise(total_impression=sum(impression), total_click=sum(link_clicks)) %>% 
+#   filter(total_impression > impression_threshold) %>%
+#   mutate(CTR=total_click/total_impression) %>%
+#   group_by_(.dots=dots2) %>% slice(which.max(CTR)) 
+# 
+
+
+
+
+
+
 
 

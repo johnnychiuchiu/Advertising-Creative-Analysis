@@ -90,6 +90,7 @@ find_best_ad<- function(df){
   
   grp_cols <- c(dimension,'ad_id') # Columns you want to group by
   dots <- lapply(grp_cols, as.symbol)# Convert character vector to list of symbols
+  dots2 <- lapply(dimension, as.symbol)# Convert character vector to list of symbols
   
   final_df<-df %>% group_by_(.dots=dots) %>% 
     dplyr::summarise(total_impression=sum(impression), total_click=sum(link_clicks)) %>% 
