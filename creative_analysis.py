@@ -66,7 +66,14 @@ final_df=final_temp2
 ###########################
 ##### etungo analysis ##### 
 ###########################
+import numpy as np
 etungo_df=final_df[final_df.account_name=='2016.06_大同_F']
+etungo_df['cpm_random']=np.random.choice(range(60, 90), etungo_df.shape[0])/1000.0
+etungo_df['spent']=etungo_df.impression*etungo_df.cpm_random
+etungo_df.loc[:,['impression','link_clicks','spent']].head(30)
+del etungo_df['cpm_random']
+
+etungo_df.columns
 
 
 
@@ -74,9 +81,7 @@ etungo_df=final_df[final_df.account_name=='2016.06_大同_F']
 #####find the best ad for each group ###
 ########################################
 
-#best_ad_age_gender=find_best_ad(etungo_df)
-
-
+best_ad_age_gender=find_best_ad(etungo_df)
 
 #################################
 #####create analyzing columns ###
@@ -86,7 +91,7 @@ etungo_df=final_df[final_df.account_name=='2016.06_大同_F']
 ### google vision related: faceCount, majorColor, textInImage, logoInImage, adult, medical, spoof, violence, image category
 
 analysis_column_generator(etungo_df,'title','sub_title','ad_content','大同|etungo')
-etungo_df=etungo_df.loc[:,['gender','age','impression','link_clicks','call_to_action','faceCount','majorColor',
+etungo_df_analysis=etungo_df.loc[:,['gender','age','impression','link_clicks','spent','call_to_action','faceCount','majorColor',
 'textInImage','adult','medical','spoof','violence','logoInImage','title_brand', 'title_length_interval',
 'sub_title_brand','sub_title_length_interval','ad_content_brand','ad_content_length_interval']]
 
@@ -100,6 +105,11 @@ etungo_df=etungo_df.loc[:,['gender','age','impression','link_clicks','call_to_ac
 final_feature=find_best_feature(etungo_df)
     
 
+#############################################
+#####find the best feature for each group ###
+#############################################
+
+importance_df=feature_importance(etungo_df_analysis)
 
 
 
