@@ -1,14 +1,7 @@
 os.chdir("/Users/JohnnyChiu/Desktop/檔案總管/2016專案/R/1227_素材分析/Advertising-Creative-Analysis/")
 os.getcwd()
 
-import pandas as pd
-import os
-
-
-############################################################
-
-
-#eval(parse("creative_function.R", encoding="UTF-8"))
+from creative_function import *
 
 
 ######################
@@ -66,7 +59,7 @@ final_df=final_temp2
 ###########################
 ##### etungo analysis ##### 
 ###########################
-import numpy as np
+
 etungo_df=final_df[final_df.account_name=='2016.06_大同_F']
 etungo_df['cpm_random']=np.random.choice(range(60, 90), etungo_df.shape[0])/1000.0
 etungo_df['spent']=etungo_df.impression*etungo_df.cpm_random
@@ -80,8 +73,14 @@ etungo_df.columns
 ########################################
 #####find the best ad for each group ###
 ########################################
+test=etungo_df[(etungo_df.CTR>1)]
+test.CPC.describe()
 
 best_ad_age_gender=find_best_ad(etungo_df)
+
+
+
+
 
 #################################
 #####create analyzing columns ###
@@ -102,7 +101,11 @@ etungo_df_analysis=etungo_df.loc[:,['gender','age','impression','link_clicks','s
 #####find the best feature for each group ###
 #############################################
 
-final_feature=find_best_feature(etungo_df)
+final_feature=find_best_feature(etungo_df_analysis)
+
+ 
+    
+    
     
 
 #############################################
@@ -110,9 +113,22 @@ final_feature=find_best_feature(etungo_df)
 #############################################
 
 importance_df=feature_importance(etungo_df_analysis)
+importance_df0=feature_importance0(etungo_df_analysis)
 
 
-
+#potential issue:如果用score拿來當importance計算的依據，每一個feature的importance都會差不多
+#                因為score的計算方法已經把最大最小值的影響爆包含在內了
+#next step
+#1. 表情符號判定
+#2. find_best_ad sccipt
+# input:  
+# output:
+#3. find_best_feature sccipt
+# input: 
+# output:
+#4. feature_importance sccipt
+# input: 
+# output:
 
 
 
