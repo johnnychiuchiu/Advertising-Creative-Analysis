@@ -56,9 +56,9 @@ etungo_df_analysis=etungo_df.loc[:,['gender','age','ad_type','bidding_type','cal
 #####find the best feature for each group ###
 #############################################
 
-final_feature=find_best_feature(etungo_df_analysis)
+final_feature=find_feature(etungo_df_analysis)
 
-best_feature_female_1824=find_best_feature(etungo_df_analysis[(etungo_df_analysis.gender=='female') & (etungo_df_analysis.age=='18-24')])
+best_feature_female_1824=find_feature(etungo_df_analysis[(etungo_df_analysis.gender=='female') & (etungo_df_analysis.age=='18-24')])
 print_full(best_feature_female_1824)
 #final_feature.to_csv('final_feature.csv', sep=',', encoding='utf-8')
 #etungo_df_analysis.head(10) 
@@ -69,33 +69,33 @@ print_full(best_feature_female_1824)
 #####find the feature importance for each group ###
 ###################################################
 
-importance_df=feature_importance(etungo_df_analysis)
+importance_df=find_importance(etungo_df_analysis)
 
 
 #######################################################
 #####find the feature and importance for each group ###
 #######################################################
 
-feature_and_importance_female_1824 = best_feature_and_importance(etungo_df_analysis,'female','18-24')
-feature_and_importance_female_2534 = best_feature_and_importance(etungo_df_analysis,'female','25-34')
-feature_and_importance_female_3544 = best_feature_and_importance(etungo_df_analysis,'female','35-44')
-feature_and_importance_female_4554 = best_feature_and_importance(etungo_df_analysis,'female','45-54')
-feature_and_importance_female_5564 = best_feature_and_importance(etungo_df_analysis,'female','55-64')
-feature_and_importance_female_65 = best_feature_and_importance(etungo_df_analysis,'female','65+')
+feature_and_importance_female_1824 = find_feature_and_importance(etungo_df_analysis,'female','18-24')
+feature_and_importance_female_2534 = find_feature_and_importance(etungo_df_analysis,'female','25-34')
+feature_and_importance_female_3544 = find_feature_and_importance(etungo_df_analysis,'female','35-44')
+feature_and_importance_female_4554 = find_feature_and_importance(etungo_df_analysis,'female','45-54')
+feature_and_importance_female_5564 = find_feature_and_importance(etungo_df_analysis,'female','55-64')
+feature_and_importance_female_65 = find_feature_and_importance(etungo_df_analysis,'female','65+')
 
-feature_and_importance_male_1824 = best_feature_and_importance(etungo_df_analysis,'male','18-24')
-feature_and_importance_male_2534 = best_feature_and_importance(etungo_df_analysis,'male','25-34')
-feature_and_importance_male_3544 = best_feature_and_importance(etungo_df_analysis,'male','35-44')
-feature_and_importance_male_4554 = best_feature_and_importance(etungo_df_analysis,'male','45-54')
-feature_and_importance_male_5564 = best_feature_and_importance(etungo_df_analysis,'male','55-64')
-feature_and_importance_male_65 = best_feature_and_importance(etungo_df_analysis,'male','65+')
+feature_and_importance_male_1824 = find_feature_and_importance(etungo_df_analysis,'male','18-24')
+feature_and_importance_male_2534 = find_feature_and_importance(etungo_df_analysis,'male','25-34')
+feature_and_importance_male_3544 = find_feature_and_importance(etungo_df_analysis,'male','35-44')
+feature_and_importance_male_4554 = find_feature_and_importance(etungo_df_analysis,'male','45-54')
+feature_and_importance_male_5564 = find_feature_and_importance(etungo_df_analysis,'male','55-64')
+feature_and_importance_male_65 = find_feature_and_importance(etungo_df_analysis,'male','65+')
 
-feature_and_importance_unknown_1824 = best_feature_and_importance(etungo_df_analysis,'unknown','18-24')
-feature_and_importance_unknown_2534 = best_feature_and_importance(etungo_df_analysis,'unknown','25-34')
-feature_and_importance_unknown_3544 = best_feature_and_importance(etungo_df_analysis,'unknown','35-44')
-feature_and_importance_unknown_4554 = best_feature_and_importance(etungo_df_analysis,'unknown','45-54')
-feature_and_importance_unknown_5564 = best_feature_and_importance(etungo_df_analysis,'unknown','55-64')
-feature_and_importance_unknown_65 = best_feature_and_importance(etungo_df_analysis,'unknown','65+')
+feature_and_importance_unknown_1824 = find_feature_and_importance(etungo_df_analysis,'unknown','18-24')
+feature_and_importance_unknown_2534 = find_feature_and_importance(etungo_df_analysis,'unknown','25-34')
+feature_and_importance_unknown_3544 = find_feature_and_importance(etungo_df_analysis,'unknown','35-44')
+feature_and_importance_unknown_4554 = find_feature_and_importance(etungo_df_analysis,'unknown','45-54')
+feature_and_importance_unknown_5564 = find_feature_and_importance(etungo_df_analysis,'unknown','55-64')
+feature_and_importance_unknown_65 = find_feature_and_importance(etungo_df_analysis,'unknown','65+')
 
 
 

@@ -68,7 +68,7 @@ def find_best_ad(df):
 ############################################ find_ad_feature ############################################ 
 ##### input
 #####       df: a data frame which columns contains ad_id and columns ready for analysis 
-#####       ad_id
+#####       ad_id: list of ad_id, such as [123,456]. For pandas dataframe, use df.ad_id.unique().tolist()
 ##### output 
 #####       a dataframe contains the feature of this ad_id
 
@@ -139,12 +139,12 @@ def analysis_column_generator(df,title_colname, sub_title_colname, ad_content_co
 
 
 
-############################################ find_best_feature ############################################ 
+############################################ find_feature ############################################ 
 ##### input
 #####       analysis_df: a table with all columns that are ready for analysis
 ##### output 
 #####       a dataframe that provides the best feature for the targeted dimension, such as {gender, age}
-def find_best_feature(analysis_df):
+def find_feature(analysis_df):
     final_feature = pd.DataFrame()
     dimension=['gender','age']
     impression_threshold=1000
@@ -183,14 +183,14 @@ def find_best_feature(analysis_df):
 
     return final_feature
 
-############################################ feature_importance ############################################ 
+############################################ find_importance ############################################ 
 ##### goal: find the feature importance for each dimension
 ##### input
 #####       analysis_df: a table with all columns that are ready for analysis
 ##### output 
 #####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
 
-def feature_importance(analysis_df):
+def find_importance(analysis_df):
     impression_threshold=1000
     normal_impression_threshold=10
     
@@ -252,7 +252,7 @@ def feature_importance(analysis_df):
 ##### output 
 #####       a dataframe that provides the best feature and importance for the targeted dimension, such as {gender, age}
 
-def best_feature_and_importance(analysis_df,gender,age):
+def find_feature_and_importance(analysis_df,gender,age):
     analysis_df=analysis_df[(analysis_df.gender==gender) & (analysis_df.age==age)]
     best_feature=find_best_feature(analysis_df)
     importance=feature_importance(analysis_df)
