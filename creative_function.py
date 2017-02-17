@@ -16,6 +16,7 @@ def print_full(x):
         print(x)
 
 
+
 ############################################ webClickScore ############################################ 
 ##### input
 #####       cpc
@@ -30,21 +31,24 @@ def webClickScore(cpc, ctr, clicks):
     return 70 + 40 * (scoreSum - scoreSum.mean()) / (scoreSum.max() - scoreSum.min())
 
 
-############################################ find_best_ad ############################################ 
+
+############################################ metric_generator ############################################ 
+##### goal: 
+#####       1. replace link_clicks with link_clicks + 1
+#####       2. generate 'score','cpc','ctr' columns by each row
+#####       3. replace rows with abnormal value in CPC and CTR with mean value
 ##### input
 #####       df: craetive table
 ##### output 
-#####       a dataframe that provides the best ad for the targeted dimension, such as {gender, age}
+#####       a data frame that the targeted metrics, including link_clicks, cpc, ctr, is being replaced
 
-def find_best_ad(df):
-    dimension=['gender','age']
-    impression_threshold=1000
-    normal_impression_threshold=10
+def metric_generator(df):
+    impression_threshold=10
 
     df['link_clicks']=df['link_clicks']+1
     df=df.assign(CTR=df.link_clicks/df.impression*1.0) 
     df=df.assign(CPC=df.spend/df.link_clicks*1.0) 
-    df_filter=df[ (df.impression>normal_impression_threshold) & (df.CTR<1) & (df.link_clicks!=1)]
+    df_filter=df[ (df.impression>normal_impression_threshold) & (df.link_clicks!=1) & (df.CTR<1) ]
     
     cpc_mean=df_filter.CPC.mean()
     ctr_mean=df_filter.CTR.mean()
@@ -52,41 +56,63 @@ def find_best_ad(df):
     df.CPC[ (df.impression<normal_impression_threshold) | (df.link_clicks==1) | (df.CTR>1) ]= cpc_mean
     df.CTR[ (df.impression<normal_impression_threshold) | (df.link_clicks==1) | (df.CTR>1) ]= ctr_mean
     df['score']=webClickScore(df.CPC, df.CTR, df.link_clicks)
-        
+    
+    return df 
+
+
+
+############################################ find_best_ad ############################################ 
+##### input
+#####       df: craetive table
+##### output 
+#####       a dataframe that provides the best ad for the targeted dimension, such as {gender, age}
+
+def find_best_ad(df):
+  
+    impression_threshold=1000
+
     f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
-    temp=df.groupby(dimension+['ad_id']).agg(f).reset_index()
+    temp=df.groupby(['ad_id']).agg(f).reset_index()
     temp=temp[temp.impression>impression_threshold]
     temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
     temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0) 
         
-    idx=temp.groupby(['gender','age'])['score'].transform(max) == temp['score']
-    temp2=temp[idx]
-    temp2['score'] = temp2.score.round(1)
-    return temp2
+    temp_max=temp[temp['score']==temp['score'].max()]
+    temp_max.loc[:,('ranking')]='best'
+    temp_min=temp[temp['score']==temp['score'].min()]
+    temp_min.loc[:,('ranking')]='worst'
+    result = pd.concat([temp_max, temp_min])
+    my_round=lambda x: x.round(1)
+    result.loc[:,['score']] = result.score.map(my_round)
 
+    return result
+    
 
-############################################ find_ad_feature ############################################ 
+    
+############################################ find_best_ad_by_segment ############################################ 
 ##### input
-#####       df: a data frame which columns contains ad_id and columns ready for analysis 
-#####       ad_id: list of ad_id, such as [123,456]. For pandas dataframe, use df.ad_id.unique().tolist()
+#####       df: craetive table
+#####       segment: a segment type, such as 'gender','age'
 ##### output 
-#####       a dataframe contains the feature of this ad_id
+#####       a dataframe that provides the best ad for the targeted dimension, such as {gender, age}
 
-def find_ad_feature(df,ad_id):
-    dimension=['gender','age']
-    drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_id','creative_id','image_link','interest','page_id','page_name','gender','age','impression','link_clicks','spend','title_brand','sub_title_brand','ad_content_length','title','subtitle','message']
-    df=df.drop(drop_columns, axis=1)
-    df_adid=df[df['ad_id'].isin(ad_id)]
-    df_adid=df_adid.drop_duplicates()
-    df_adid=pd.melt(df_adid,id_vars=['ad_id'])
-    df_adid['sort'] = pd.Categorical(df_adid['ad_id'], ad_id)
-    df_adid=df_adid.sort_values(by="sort")
-    del df_adid['sort']
+def find_best_ad_by_segment(df,segment):
+    impression_threshold=1000
     
-    return df_adid 
-    
-    
+    f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
+    temp=df.groupby([segment]+['ad_id']).agg(f).reset_index()
+    temp=temp[temp.impression>impression_threshold]
+    temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
+    temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0) 
+        
+    idx=temp.groupby([segment])['score'].transform(max) == temp['score']
+    result=temp[idx]
+    my_round=lambda x: x.round(1)
+    result.loc[:,['score']] = result.score.map(my_round)
 
+    return result
+
+    
 
 ############################################ analysis_column_generator ############################################ 
 ##### input
@@ -139,47 +165,60 @@ def analysis_column_generator(df,title_colname, sub_title_colname, ad_content_co
 
 
 
+############################################ find_ad_feature ############################################ 
+##### input
+#####       df: a data frame which columns contains ad_id and columns ready for analysis 
+#####       ad_id: list of ad_id, such as [123,456]. For pandas dataframe, use df.ad_id.unique().tolist()
+##### output 
+#####       a dataframe contains the feature of this ad_id
+
+def find_ad_feature(df,ad_id):
+    dimension=['gender','age']
+    drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_id',
+                        'creative_id','image_link','interest','page_id','page_name',
+                        'impression','link_clicks','spend','CPC','CTR','score',
+                        'title','subtitle','message',
+                        'title_length','sub_title_length','ad_content_length',]
+    df=df.drop(drop_columns, axis=1)
+    df_adid=df[df['ad_id'].isin(ad_id)]
+    df_adid=df_adid.drop_duplicates()
+    df_adid=pd.melt(df_adid,id_vars=['ad_id'])
+    df_adid['sort'] = pd.Categorical(df_adid['ad_id'], ad_id)
+    df_adid=df_adid.sort_values(by="sort")
+    del df_adid['sort']
+    
+    return df_adid 
+    
+    
+
 ############################################ find_feature ############################################ 
 ##### input
-#####       analysis_df: a table with all columns that are ready for analysis
+#####       analysis_df: a table with all columns that are ready for analysis, with metric columns(such as CPC,CTR,score)
+#####       segment: a segment type, such as 'gender','age'
 ##### output 
-#####       a dataframe that provides the best feature for the targeted dimension, such as {gender, age}
-def find_feature(analysis_df):
+#####       a dataframe that provides the best feature for the targeted segment, such as {gender, age}
+def find_feature(analysis_df,segment):
     final_feature = pd.DataFrame()
-    dimension=['gender','age']
     impression_threshold=1000
-    normal_impression_threshold=10
-    
-    analysis_df['link_clicks']=analysis_df['link_clicks']+1
-    analysis_df=analysis_df.assign(CTR=analysis_df.link_clicks/analysis_df.impression*1.0) 
-    analysis_df=analysis_df.assign(CPC=analysis_df.spend/analysis_df.link_clicks*1.0) 
-    analysis_df_filter=analysis_df[ (analysis_df.impression>normal_impression_threshold) & (analysis_df.CTR<1) & (analysis_df.link_clicks!=1)]
-        
-    cpc_mean=analysis_df_filter.CPC.mean()
-    ctr_mean=analysis_df_filter.CTR.mean()
-        
-    analysis_df.CPC[ (analysis_df.impression<normal_impression_threshold) | (analysis_df.link_clicks==1) | (analysis_df.CTR>1) ]= cpc_mean
-    analysis_df.CTR[ (analysis_df.impression<normal_impression_threshold) | (analysis_df.link_clicks==1) | (analysis_df.CTR>1) ]= ctr_mean
-    analysis_df['score']=webClickScore(analysis_df.CPC, analysis_df.CTR, analysis_df.link_clicks)
-    
+
     for name in analysis_df:
-        if name not in dimension+['impression','link_clicks','spend','CTR','CPC','score']:
+        if name not in [segment]+['impression','link_clicks','spend','CTR','CPC','score']:
             print name
             f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
-            temp=analysis_df.groupby(dimension+[name]).agg(f).reset_index()
+            temp=analysis_df.groupby([segment]+[name]).agg(f).reset_index()
             temp=temp[temp.impression>impression_threshold]
             temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
             temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0) 
                 
-            idx= temp.groupby(dimension)['score'].transform(max) == temp['score']
+            idx= temp.groupby([segment])['score'].transform(max) == temp['score']
             temp2=temp[idx]
             
-            temp_reshape=pd.melt(temp2,id_vars=dimension+['impression','link_clicks','spend','CTR','CPC','score'],var_name='feature')
-            temp_reshape=temp_reshape.loc[:,dimension+['feature','value','impression','link_clicks','spend','CTR','CPC','score']]
+            temp_reshape=pd.melt(temp2,id_vars=[segment]+['impression','link_clicks','spend','CTR','CPC','score'],var_name='feature')
+            temp_reshape=temp_reshape.loc[:,[segment]+['feature','value','impression','link_clicks','spend','CTR','CPC','score']]
             
             final_feature=pd.concat([final_feature, temp_reshape])
             
-    final_feature=final_feature.sort_values(by=dimension, ascending=True)
+    final_feature=final_feature.sort_values(by=[segment], ascending=True)
 
     return final_feature
 
@@ -187,25 +226,13 @@ def find_feature(analysis_df):
 ##### goal: find the feature importance for each dimension
 ##### input
 #####       analysis_df: a table with all columns that are ready for analysis
+#####       segment: a segment type, such as 'gender','age'
 ##### output 
 #####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
 
 def find_importance(analysis_df):
     impression_threshold=1000
-    normal_impression_threshold=10
-    
-    analysis_df['link_clicks']=analysis_df['link_clicks']+1
-    analysis_df=analysis_df.assign(CTR=analysis_df.link_clicks/analysis_df.impression*1.0) 
-    analysis_df=analysis_df.assign(CPC=analysis_df.spend/analysis_df.link_clicks*1.0) 
-    analysis_df_filter=analysis_df[ (analysis_df.impression>normal_impression_threshold) & (analysis_df.CTR<1) & (analysis_df.link_clicks!=1)]
-            
-    cpc_mean=analysis_df_filter.CPC.mean()
-    ctr_mean=analysis_df_filter.CTR.mean()
-        
-    analysis_df.CPC[ (analysis_df.impression<normal_impression_threshold) | (analysis_df.link_clicks==1) | (analysis_df.CTR>1) ]= cpc_mean
-    analysis_df.CTR[ (analysis_df.impression<normal_impression_threshold) | (analysis_df.link_clicks==1) | (analysis_df.CTR>1) ]= ctr_mean
-    analysis_df['score']=webClickScore(analysis_df.CPC, analysis_df.CTR, analysis_df.link_clicks)
-    
+
     feature=copy.deepcopy(analysis_df)
     feature=feature.drop(['impression','link_clicks','spend','CTR','CPC','score'], axis=1)
     importance_df=pd.DataFrame({'feature':feature.columns,
@@ -249,16 +276,19 @@ def find_importance(analysis_df):
 ############################################ best_feature_and_importance ############################################ 
 ##### input
 #####       analysis_df: a table with all columns that are ready for analysis
+#####       segment: a segment type, such as 'gender','age'
+#####       value: a target value for this segment
 ##### output 
 #####       a dataframe that provides the best feature and importance for the targeted dimension, such as {gender, age}
 
-def find_feature_and_importance(analysis_df,gender,age):
-    analysis_df=analysis_df[(analysis_df.gender==gender) & (analysis_df.age==age)]
-    best_feature=find_best_feature(analysis_df)
-    importance=feature_importance(analysis_df)
-    
+def find_feature_and_importance(analysis_df,segment,value):
+    analysis_df=analysis_df[analysis_df[segment]==value]
+    best_feature=find_feature(analysis_df,segment)
+    importance=find_importance(analysis_df)
+
     feature_and_importance=pd.merge(best_feature, importance, on=['feature'], how='left')
     feature_and_importance=feature_and_importance.sort_values(by='importance', ascending=False)
+ 
     
     return feature_and_importance
     
