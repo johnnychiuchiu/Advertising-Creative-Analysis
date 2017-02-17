@@ -5,16 +5,17 @@ import pandas as pd
 import os
 import numpy as np
 from creative_function import *
+from initDataFrame import *
+
 
 
 ######################
 ##### 讀檔案進來 ##### 
 ######################
 
-myjson = pd.read_json('../facebook_ad_report_ver3/age_gender_json_0214')
-myjson['account_name'] = myjson['account_name'].str.strip()
-#myjson.account_id.value_counts()
-#myjson.account_name.value_counts()
+mydata = initDataFrame('../facebook_ad_report_ver3/insightData/age_gender_json_0217',
+                '../facebook_ad_report_ver3/insightData/with-x-y-google-vision_0217.json')
+mydata['account_name'] = mydata['account_name'].str.strip()
 
 
 ######################################################################
@@ -22,11 +23,24 @@ myjson['account_name'] = myjson['account_name'].str.strip()
 ##### etungo analysis ##### 
 ###########################
 
-etungo_df=myjson[myjson.account_id == 1618494121752703]
-etungo_df=etungo_df[(etungo_df.ad_type=='Ad with an image') | (etungo_df.ad_type=='Ad Use existing post')]
+etungo_df=mydata[mydata.account_id == 1618494121752703]
+etungo_df=brand_column_generator(etungo_df,'大同|etungo')
 #pd.isnull(etungo_df).any(axis=0)
 etungo_df=metric_generator(etungo_df)
 
+etungo_df.faceCount.value_counts()
+a=etungo_df[etungo_df.faceCount==5]
+
+
+segment='gender'
+name='faceCount'
+analysis_df=copy.deepcopy(etungo_df)
+f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
+temp=analysis_df.groupby([segment]+[name]).agg(f).reset_index()
+temp=temp[temp.impression>impression_threshold]
+temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
+temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0) 
+          
 
 ########################################
 #####find the best and worst ad ########
@@ -36,34 +50,31 @@ best_ad=find_best_ad(etungo_df)
 
 
 
-########################################
-#####find the best ad for each group ###
-########################################
+####################################################
+#####find the best ad and feature for each group ###
+####################################################
 
 best_ad_gender=find_best_ad_by_segment(etungo_df,'gender')
 best_ad_age=find_best_ad_by_segment(etungo_df,'age')
 
+best_ad_gender_feature=find_ad_feature(etungo_df, best_ad_gender.ad_id.unique().tolist())
+best_ad_gender_age=find_ad_feature(etungo_df, best_ad_age.ad_id.unique().tolist())
 
 
 #################################
-#####create analyzing columns ###
+#####filter analyzing columns ###
 #################################
 ### ad related: title_brand, sub_title_brand, ad_content_brand, title_length_interval, sub_title_length_interval, ad_content_length_interval, call_to_action
 ### ad performance related: age, gender, impression, click
 ### google vision related: faceCount, majorColor, textInImage, logoInImage, adult, medical, spoof, violence, image category
-etungo_df_analysis_temp=copy.deepcopy(etungo_df)
-analysis_column_generator(etungo_df_analysis_temp,'title','subtitle','message','大同|etungo')
-etungo_df_analysis=etungo_df_analysis_temp.loc[:,['gender','age','ad_type','bidding_type','call_to_action','campaign_goal',
-'impression','link_clicks','spend','page_category','title_brand', 'title_length_interval',
-'sub_title_brand','sub_title_length_interval','ad_content_brand','ad_content_length_interval']]
+
+etungo_df_analysis=column_selector(etungo_df)
+#analysis_column_generator(etungo_df_analysis_temp,'title','subtitle','message','大同|etungo')
+#etungo_df_analysis=etungo_df_analysis_temp.loc[:,['gender','age','ad_type','bidding_type','call_to_action','campaign_goal',
+#'impression','link_clicks','spend','page_category','title_brand', 'title_length_interval',
+#'sub_title_brand','sub_title_length_interval','ad_content_brand','ad_content_length_interval']]
 
 
-df_6034192350805=find_ad_feature(etungo_df_analysis_temp, [6034192350805])
-df_adid=find_ad_feature(etungo_df_analysis_temp, best_ad_gender.ad_id.unique().tolist())
-
-
-
-    
 
 
 #############################################
@@ -85,6 +96,8 @@ importance_df=find_importance(etungo_df_analysis)
 
 
 
+
+    
 #######################################################
 #####find the feature and importance for each group ###
 #######################################################
@@ -99,21 +112,6 @@ feature_and_importance_3544 = find_feature_and_importance(etungo_df_analysis,'ag
 feature_and_importance_4554 = find_feature_and_importance(etungo_df_analysis,'age','45-54')
 feature_and_importance_5564 = find_feature_and_importance(etungo_df_analysis,'age','55-64')
 feature_and_importance_65 = find_feature_and_importance(etungo_df_analysis,'age','65+')
-
-
-
-
-#next step
-#1. 表情符號判定
-#2. find_best_ad sccipt
-# input:  
-# output:
-#3. find_best_feature sccipt
-# input: 
-# output:
-#4. feature_importance sccipt
-# input: 
-# output:
 
 
 
@@ -169,13 +167,6 @@ mamaway_best_ad=find_best_ad(mamaway_df)
 
 mamaway_best_ad_gender=find_best_ad_by_segment(mamaway_df,'gender')
 mamaway_best_ad_age=find_best_ad_by_segment(mamaway_df,'age')
-
-
-from initDataFrame import *
-
-a=initDataFrame('../facebook_ad_report_ver3/insightData/age_gender_json_0217','../facebook_ad_report_ver3/insightData/with-x-y-google-vision_0217.json')
-
-
 
 
 
