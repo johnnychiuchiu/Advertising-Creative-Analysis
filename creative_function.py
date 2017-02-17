@@ -112,6 +112,28 @@ def find_best_ad_by_segment(df,segment):
 
     return result
 
+
+############################################ brand_column_generator ############################################ 
+##### input
+#####       df: craetive table
+#####       brand_keywords: a vector of the brand keywords
+##### output 
+#####       a table appended with brand related columns 
+
+def brand_column_generator(df, brand_keywords):
+    
+    # title_brand
+    df['title_brand']=df['title'].str.contains(brand_keywords.decode('utf-8'))
+    
+    # sub_title_brand
+    df['subtitle_brand']=df['subtitle'].str.contains(brand_keywords.decode('utf-8'))
+    
+    # ad_content_brand
+    df['content_brand']=df['content'].str.contains(brand_keywords.decode('utf-8'))
+    
+    return df
+
+
     
 
 ############################################ analysis_column_generator ############################################ 
@@ -175,10 +197,10 @@ def analysis_column_generator(df,title_colname, sub_title_colname, ad_content_co
 def find_ad_feature(df,ad_id):
     dimension=['gender','age']
     drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_id',
-                        'creative_id','image_link','interest','page_id','page_name',
-                        'impression','link_clicks','spend','CPC','CTR','score',
-                        'title','subtitle','message',
-                        'title_length','sub_title_length','ad_content_length',]
+                        'content','creative_id','creative_url','fanpage',
+                        'impression','interest',
+                        'link_clicks','page_id','subtitle','title',
+                        'spend','CPC','CTR','score']
     df=df.drop(drop_columns, axis=1)
     df_adid=df[df['ad_id'].isin(ad_id)]
     df_adid=df_adid.drop_duplicates()
@@ -189,6 +211,20 @@ def find_ad_feature(df,ad_id):
     
     return df_adid 
     
+
+############################################ column_selector ############################################ 
+##### input
+#####       df: a data frame which columns contains ad_id and columns ready for analysis 
+##### output 
+#####       a dataframe contains only analysis related columns
+
+def column_selector(df):
+    result_df=copy.deepcopy(df)
+    drop_columns=['account_id','account_name','ad_id','ad_set_id','campaign_id',
+                   'content','creative_id','creative_url','fanpage',
+                    'interest','page_id','subtitle','title']
+    result_df=result_df.drop(drop_columns, axis=1)
+    return result_df 
     
 
 ############################################ find_feature ############################################ 
@@ -200,6 +236,11 @@ def find_ad_feature(df,ad_id):
 def find_feature(analysis_df,segment):
     final_feature = pd.DataFrame()
     impression_threshold=1000
+    
+    if segment=='gender':
+        analysis_df=analysis_df.drop(['age'], axis=1)
+    elif segment=='age':   
+        analysis_df=analysis_df.drop(['gender'], axis=1)
 
     for name in analysis_df:
         if name not in [segment]+['impression','link_clicks','spend','CTR','CPC','score']:
@@ -282,6 +323,7 @@ def find_importance(analysis_df):
 #####       a dataframe that provides the best feature and importance for the targeted dimension, such as {gender, age}
 
 def find_feature_and_importance(analysis_df,segment,value):
+    
     analysis_df=analysis_df[analysis_df[segment]==value]
     best_feature=find_feature(analysis_df,segment)
     importance=find_importance(analysis_df)
