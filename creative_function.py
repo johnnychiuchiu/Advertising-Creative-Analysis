@@ -48,13 +48,13 @@ def metric_generator(df):
     df['link_clicks']=df['link_clicks']+1
     df=df.assign(CTR=df.link_clicks/df.impression*1.0) 
     df=df.assign(CPC=df.spend/df.link_clicks*1.0) 
-    df_filter=df[ (df.impression>normal_impression_threshold) & (df.link_clicks!=1) & (df.CTR<1) ]
+    df_filter=df[ (df.impression>impression_threshold) & (df.link_clicks!=1) & (df.CTR<1) ]
     
     cpc_mean=df_filter.CPC.mean()
     ctr_mean=df_filter.CTR.mean()
     
-    df.CPC[ (df.impression<normal_impression_threshold) | (df.link_clicks==1) | (df.CTR>1) ]= cpc_mean
-    df.CTR[ (df.impression<normal_impression_threshold) | (df.link_clicks==1) | (df.CTR>1) ]= ctr_mean
+    df.CPC[ (df.impression<impression_threshold) | (df.link_clicks==1) | (df.CTR>1) ]= cpc_mean
+    df.CTR[ (df.impression<impression_threshold) | (df.link_clicks==1) | (df.CTR>1) ]= ctr_mean
     df['score']=webClickScore(df.CPC, df.CTR, df.link_clicks)
     
     return df 
@@ -134,7 +134,6 @@ def brand_column_generator(df, brand_keywords):
     return df
 
 
-    
 
 ############################################ analysis_column_generator ############################################ 
 ##### input
@@ -196,15 +195,16 @@ def analysis_column_generator(df,title_colname, sub_title_colname, ad_content_co
 
 def find_ad_feature(df,ad_id):
     dimension=['gender','age']
-    drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_id',
-                        'content','creative_id','creative_url','fanpage',
-                        'impression','interest',
+    drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_goal',
+                        'campaign_id','content','creative_id','creative_url','fanpage',
+                        'fanpage_industry','impression','interest',
                         'link_clicks','page_id','subtitle','title',
                         'spend','CPC','CTR','score']
     df=df.drop(drop_columns, axis=1)
     df_adid=df[df['ad_id'].isin(ad_id)]
     df_adid=df_adid.drop_duplicates()
-    df_adid=pd.melt(df_adid,id_vars=['ad_id'])
+    df_adid=pd.melt(df_adid,id_vars=['ad_id'],var_name='feature')
+    
     df_adid['sort'] = pd.Categorical(df_adid['ad_id'], ad_id)
     df_adid=df_adid.sort_values(by="sort")
     del df_adid['sort']
@@ -220,8 +220,8 @@ def find_ad_feature(df,ad_id):
 
 def column_selector(df):
     result_df=copy.deepcopy(df)
-    drop_columns=['account_id','account_name','ad_id','ad_set_id','campaign_id',
-                   'content','creative_id','creative_url','fanpage',
+    drop_columns=['account_id','account_name','ad_id','ad_set_id','campaign_goal','campaign_id',
+                   'content','creative_id','creative_url','fanpage','fanpage_industry',
                     'interest','page_id','subtitle','title']
     result_df=result_df.drop(drop_columns, axis=1)
     return result_df 
@@ -330,7 +330,33 @@ def find_feature_and_importance(analysis_df,segment,value):
 
     feature_and_importance=pd.merge(best_feature, importance, on=['feature'], how='left')
     feature_and_importance=feature_and_importance.sort_values(by='importance', ascending=False)
- 
+    
+    feature_and_importance = feature_and_importance[[segment]+[
+                                                    'feature',
+                                                    'value',
+                                                    'percentage',
+                                                    'importance',
+                                                    'impression',
+                                                    'link_clicks',
+                                                    'spend',
+                                                    'CTR',
+                                                    'CPC',
+                                                    'score',
+                                                    'max_click',
+                                                    'max_cpc',
+                                                    'max_ctr',
+                                                    'max_impression',
+                                                    'max_score',
+                                                    'max_spend',
+                                                    'min_click',
+                                                    'min_cpc',
+                                                    'min_ctr',
+                                                    'min_impression',
+                                                    'min_score',
+                                                    'min_spend',]]
+    my_round=lambda x: x.round(2)
+    feature_and_importance.loc[:,['percentage']] = feature_and_importance.percentage.map(my_round)                                                
     
     return feature_and_importance
     
+
