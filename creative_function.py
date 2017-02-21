@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import numpy as np
 import copy
-
+from flask import jsonify
 ############################################ print_full ############################################ 
 ##### goal: print the full pandas data frame
 ##### input
@@ -359,4 +359,109 @@ def find_feature_and_importance(analysis_df,segment,value):
     
     return feature_and_importance
     
+
+########################################################################################
+########################################### api function ###############################
+########################################################################################
+
+############################################ best_ad api ########################
+##### input
+#####       campaign id
+#####           such as: http://localhost:5000/best_ad/v1.0/6060850543605,6059224129805,6059889803605,6059892762805,6059893654805,6057193158805,6055407354005,6053312447405,6051265864405,6051266212805,6049374949605,6035884102605,6035882865005,6034201296805,6034192331405,6033466101805,6032523746205,6033118372005,6033118372205,6032205731205,6032523746005,6032205730605,6031518441405,6031616546205,6031518442005,6031518441605,6031518441205,6031518441005,6032906211805,6032906682605,6032907243605,6032261374205,6032627603405,6032260651005,6032626832005,6032321919605,6032411410005,6032321128805,6032200009405,6031742821405,6031796276605,6031722773205
+##### output 
+#####       best and worst ad_id in json format
+def best_ad(campaign_id):
+    campaign_ids=campaign_id.split(',')
+    campaign_ids = map(int, campaign_ids)
+    campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
+    result_df=find_best_ad(campaign_data)
+    result_json=b[['ad_id','ranking']].to_dict(orient='records')
+
+    return jsonify(result_json)
+
+
+
+############################################ recommendation api ########################
+##### input
+#####       campaign id
+#####           such as: http://localhost:5000/recommendation/v1.0/6060850543605,6059224129805,6059889803605,6059892762805,6059893654805,6057193158805,6055407354005,6053312447405,6051265864405,6051266212805,6049374949605,6035884102605,6035882865005,6034201296805,6034192331405,6033466101805,6032523746205,6033118372005,6033118372205,6032205731205,6032523746005,6032205730605,6031518441405,6031616546205,6031518442005,6031518441605,6031518441205,6031518441005,6032906211805,6032906682605,6032907243605,6032261374205,6032627603405,6032260651005,6032626832005,6032321919605,6032411410005,6032321128805,6032200009405,6031742821405,6031796276605,6031722773205
+##### output 
+#####       all segment and value recommendation in json format
+def recommendation(campaign_id):
+    campaign_ids=campaign_id.split(',')
+    campaign_ids = map(int, campaign_ids)
+    
+    campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
+    campaign_data=metric_generator(campaign_data)
+    campaign_data_analysis=column_selector(campaign_data)
+    
+    feature_and_importance_female.iloc[0][0]
+    feature_and_importance_female = find_feature_and_importance(campaign_data_analysis,'gender','female')
+    feature_and_importance_male = find_feature_and_importance(campaign_data_analysis,'gender','male')
+    feature_and_importance_unknown = find_feature_and_importance(campaign_data_analysis,'gender','unknown')
+    
+    feature_and_importance_1824 = find_feature_and_importance(campaign_data_analysis,'age','18-24')
+    feature_and_importance_2534 = find_feature_and_importance(campaign_data_analysis,'age','25-34')
+    feature_and_importance_3544 = find_feature_and_importance(campaign_data_analysis,'age','35-44')
+    feature_and_importance_4554 = find_feature_and_importance(campaign_data_analysis,'age','45-54')
+    feature_and_importance_5564 = find_feature_and_importance(campaign_data_analysis,'age','55-64')
+    feature_and_importance_65 = find_feature_and_importance(campaign_data_analysis,'age','65+')
+    
+    df_list=[feature_and_importance_female,feature_and_importance_male,feature_and_importance_unknown,
+    feature_and_importance_1824,feature_and_importance_2534,feature_and_importance_3544,
+    feature_and_importance_4554,feature_and_importance_5564,feature_and_importance_65]
+    
+    result_df = pd.DataFrame(columns=['segment','value','recommend'])
+    
+    for index,df in enumerate(df_list):
+        temp=df[['feature','value','percentage']]
+        temp.set_index(temp.feature, inplace = True)
+        del temp['feature']
+        temp['priority']=range(1, temp.shape[0]+1)
+        temp_dict=temp.to_dict(orient='index')
+        
+        result_df.loc[index]=pd.Series({'segment':feature_and_importance_female.columns[0],'value':feature_and_importance_female.iloc[0][0],'recommend':temp_dict})
+
+    result_json=result_df.to_dict(orient='records')
+    
+    return jsonify(result_json)
+
+
+
+############################################ best_ad_by_segment api ########################
+##### input
+#####       campaign id
+#####           such as: http://localhost:5000/best_ad_by_segment/v1.0/6060850543605,6059224129805,6059889803605,6059892762805,6059893654805,6057193158805,6055407354005,6053312447405,6051265864405,6051266212805,6049374949605,6035884102605,6035882865005,6034201296805,6034192331405,6033466101805,6032523746205,6033118372005,6033118372205,6032205731205,6032523746005,6032205730605,6031518441405,6031616546205,6031518442005,6031518441605,6031518441205,6031518441005,6032906211805,6032906682605,6032907243605,6032261374205,6032627603405,6032260651005,6032626832005,6032321919605,6032411410005,6032321128805,6032200009405,6031742821405,6031796276605,6031722773205
+##### output 
+#####       all segment and value recommendation in json format
+def best_ad_by_segment(campaign_id):
+    campaign_ids=campaign_id.split(',')
+    campaign_ids = map(int, campaign_ids)
+        
+    campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
+    campaign_data=metric_generator(campaign_data)
+    
+    best_ad_gender=find_best_ad_by_segment(campaign_data,'gender')
+    best_ad_age=find_best_ad_by_segment(campaign_data,'age')
+    
+    gender_df=pd.melt(best_ad_gender,id_vars=['ad_id','impression','link_clicks','spend','CTR','CPC','score'],var_name='feature')
+    age_df=pd.melt(best_ad_age,id_vars=['ad_id','impression','link_clicks','spend','CTR','CPC','score'],var_name='feature')
+    df_adid = pd.concat([gender_df, age_df])
+    df_adid=df_adid[['feature','value','ad_id']]
+    df_adid = df_adid.reset_index(drop=True)
+    result_df = pd.DataFrame(columns=['segment','value','ad_id','feature'])
+    
+    for index,ad_id in enumerate(df_adid['ad_id']):
+        ad_feature=find_ad_feature(campaign_data, [ad_id])
+        ad_feature=ad_feature[['feature','value']].T
+        ad_feature.columns = ad_feature.iloc[0]
+        ad_feature.drop(ad_feature.index[0:1], inplace=True)
+        ad_feature_dict=ad_feature.to_dict(orient='records')
+        
+        result_df.loc[index]=pd.Series({'segment':df_adid['feature'][index],'value':df_adid['value'][index],
+                                  'ad_id':df_adid['ad_id'][index],'feature':ad_feature_dict})
+    
+    result_df['ad_id'] = map(int, result_df['ad_id'])
+    result_json=result_df.to_dict(orient='records')
+    return jsonify(result_json)
 
