@@ -3,6 +3,7 @@ import os
 import numpy as np
 import copy
 from flask import jsonify
+import json
 ############################################ print_full ############################################ 
 ##### goal: print the full pandas data frame
 ##### input
@@ -188,12 +189,12 @@ def analysis_column_generator(df,title_colname, sub_title_colname, ad_content_co
 
 ############################################ find_ad_feature ############################################ 
 ##### input
-#####       df: a data frame which columns contains ad_id and columns ready for analysis 
+#####       df: a data frame which columns contains ad_id and columns ready for analysis, such as etungo_df
 #####       ad_id: list of ad_id, such as [123,456]. For pandas dataframe, use df.ad_id.unique().tolist()
 ##### output 
 #####       a dataframe contains the feature of this ad_id
 
-def find_ad_feature(df,ad_id):
+def find_ad_feature(df,gv_df_label,ad_id):
     dimension=['gender','age']
     drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_goal',
                         'campaign_id','content','creative_id','creative_url','fanpage',
@@ -201,9 +202,22 @@ def find_ad_feature(df,ad_id):
                         'link_clicks','page_id','subtitle','title',
                         'spend','CPC','CTR','score']
     df=df.drop(drop_columns, axis=1)
+    
+    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    drop_columns=get_label_name(df,gv_df_label,100)
+    df=df.drop(drop_columns, axis=1)
+    
     df_adid=df[df['ad_id'].isin(ad_id)]
     df_adid=df_adid.drop_duplicates()
     df_adid=pd.melt(df_adid,id_vars=['ad_id'],var_name='feature')
+    
+    gv_df_label_adid=gv_df_label[gv_df_label['ad_id'].isin(ad_id)]
+    gv_df_label_adid=gv_df_label_adid.rename(columns = {'label':'value'})
+    gv_df_label_adid['feature']='label'
+    cols_sort=['ad_id','feature','value']
+    gv_df_label_adid=gv_df_label_adid[cols_sort]
+    
+    df_adid=df_adid.append(gv_df_label_adid,ignore_index=True)
     
     df_adid['sort'] = pd.Categorical(df_adid['ad_id'], ad_id)
     df_adid=df_adid.sort_values(by="sort")
@@ -218,12 +232,17 @@ def find_ad_feature(df,ad_id):
 ##### output 
 #####       a dataframe contains only analysis related columns
 
-def column_selector(df):
+def column_selector(df,gv_df_label):
     result_df=copy.deepcopy(df)
     drop_columns=['account_id','account_name','ad_id','ad_set_id','campaign_goal','campaign_id',
                    'content','creative_id','creative_url','fanpage','fanpage_industry',
                     'interest','page_id','subtitle','title']
     result_df=result_df.drop(drop_columns, axis=1)
+    
+    drop_columns=get_label_name(df,gv_df_label,100)
+    result_df=result_df.drop(drop_columns, axis=1)
+    
+    
     return result_df 
     
 
@@ -233,20 +252,28 @@ def column_selector(df):
 #####       segment: a segment type, such as 'gender','age'
 ##### output 
 #####       a dataframe that provides the best feature for the targeted segment, such as {gender, age}
-def find_feature(analysis_df,segment):
+def find_feature(analysis_df,segment,value,df,gv_df_label):
     final_feature = pd.DataFrame()
     impression_threshold=1000
+    label_threshold=100
     
-    if segment=='gender':
-        analysis_df=analysis_df.drop(['age'], axis=1)
-    elif segment=='age':   
-        analysis_df=analysis_df.drop(['gender'], axis=1)
+    #gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    #drop_columns=get_label_name(df,gv_df_label,100)
+    #analysis_df=analysis_df.drop(drop_columns, axis=1)
+    
+    analysis_df_filtered=analysis_df[analysis_df[segment]==value]
+    df_filtered=df[df[segment]==value]
 
-    for name in analysis_df:
+    if segment=='gender':
+        analysis_df_filtered=analysis_df_filtered.drop(['age'], axis=1)
+    elif segment=='age':   
+        analysis_df_filtered=analysis_df_filtered.drop(['gender'], axis=1)
+
+    for name in analysis_df_filtered:
         if name not in [segment]+['impression','link_clicks','spend','CTR','CPC','score']:
             print name
             f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
-            temp=analysis_df.groupby([segment]+[name]).agg(f).reset_index()
+            temp=analysis_df_filtered.groupby([segment]+[name]).agg(f).reset_index()
             temp=temp[temp.impression>impression_threshold]
             temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
             temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0) 
@@ -258,8 +285,13 @@ def find_feature(analysis_df,segment):
             temp_reshape=temp_reshape.loc[:,[segment]+['feature','value','impression','link_clicks','spend','CTR','CPC','score']]
             
             final_feature=pd.concat([final_feature, temp_reshape])
+    
+    #merge the recommend label row back to final_feature
+    final_label=find_label_feature(df_filtered,gv_df_label,label_threshold,segment)
+    final_feature = pd.concat([final_feature, final_label])[['feature',segment,'value']] 
             
     final_feature=final_feature.sort_values(by=[segment], ascending=True)
+    
 
     return final_feature
 
@@ -271,9 +303,15 @@ def find_feature(analysis_df,segment):
 ##### output 
 #####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
 
-def find_importance(analysis_df):
+def find_importance(analysis_df,segment,value,df,gv_df_label):
     impression_threshold=1000
+    
+    analysis_df=analysis_df[analysis_df[segment]==value]
+    df=df[df[segment]==value]
 
+    top_label=find_top_label(df,gv_df_label)
+    analysis_df['label']=df[top_label]
+    
     feature=copy.deepcopy(analysis_df)
     feature=feature.drop(['impression','link_clicks','spend','CTR','CPC','score'], axis=1)
     importance_df=pd.DataFrame({'feature':feature.columns,
@@ -310,8 +348,123 @@ def find_importance(analysis_df):
                 
     importance_df=importance_df.sort_values(by=['importance'], ascending=False) 
     importance_df['percentage']=  importance_df.importance / importance_df.importance.sum()
-           
+
     return importance_df
+
+
+
+############################################ find_label_feature ############################################ 
+##### goal: find the label feature for each dimension
+##### input
+#####       df: a table with all columns that are ready for analysis, it's different from find_importance's analysis_df
+#####       segment: a segment type, such as 'gender','age'
+##### output 
+#####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
+def find_label_feature(df,gv_df_label,label_threshold,segment):
+    result_df = pd.DataFrame(columns=[segment,'feature','value'])
+    impression_threshold=1000
+    
+    for segment_value in df[segment].unique():
+        print segment_value
+        gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df[df[segment]==segment_value].ad_id.unique())]
+        label_name=get_label_name(df,gv_df_label_filtered,label_threshold)
+        importance_df=pd.DataFrame({'feature':pd.Series(label_name),
+                            'max_impression':0,'max_click':0,'max_spend':0,'max_ctr':0,'max_cpc':0,'max_score':0,
+                            'min_impression':0,'min_click':0,'min_spend':0,'min_ctr':0,'min_cpc':0,'min_score':0,
+                            'importance':0})
+        
+        for name in label_name:
+            print name
+            f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
+            temp=df[df[segment]==segment_value].groupby([name]).agg(f).reset_index()
+            temp=temp[temp.impression>impression_threshold]
+            temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
+            temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0)
+        
+            if temp.shape[0]<=1:
+                importance_df=importance_df[importance_df.feature!=name]
+            else:
+                max_score= temp.score.max()
+                min_score= temp.score.min()
+                importance_df.importance[importance_df.feature==name]= max_score-min_score
+                importance_df.max_score[importance_df.feature==name]= max_score
+                importance_df.min_score[importance_df.feature==name]= min_score
+                importance_df.max_impression[importance_df.feature==name]= temp.impression[temp.score==max_score].values
+                importance_df.min_impression[importance_df.feature==name]= temp.impression[temp.score==min_score].values
+                importance_df.max_click[importance_df.feature==name]= temp.link_clicks[temp.score==max_score].values
+                importance_df.min_click[importance_df.feature==name]= temp.link_clicks[temp.score==min_score].values
+                importance_df.max_spend[importance_df.feature==name]= temp.spend[temp.score==max_score].values
+                importance_df.min_spend[importance_df.feature==name]= temp.spend[temp.score==min_score].values
+                importance_df.max_ctr[importance_df.feature==name]= temp.CTR[temp.score==max_score].values
+                importance_df.min_ctr[importance_df.feature==name]= temp.CTR[temp.score==min_score].values
+                importance_df.max_cpc[importance_df.feature==name]= temp.CPC[temp.score==max_score].values
+                importance_df.min_cpc[importance_df.feature==name]= temp.CPC[temp.score==min_score].values
+                    
+        importance_df=importance_df.sort_values(by=['importance'], ascending=False) 
+        importance_df['percentage']=  importance_df.importance / importance_df.importance.sum()
+        
+        row_data={segment:segment_value,'feature':'label','value':list(importance_df['feature'][0:5])}
+        
+        temp=pd.DataFrame.from_dict(row_data,orient='columns')
+        temp=pd.DataFrame(temp.groupby([segment,'feature'])['value'].apply(list)).reset_index()
+        result_df=result_df.append(temp,ignore_index=True)
+    
+    return result_df
+
+
+
+############################################ find_top_label ############################################ 
+##### goal: find the label importance for each dimension
+##### input
+#####       df: a table with all columns that are ready for analysis, it's different from find_importance's analysis_df
+#####       segment: a segment type, such as 'gender','age'
+##### output 
+#####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
+def find_top_label(df,gv_df_label):
+    label_threshold=100
+    impression_threshold=1000
+    gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    label_name=get_label_name(df,gv_df_label_filtered,label_threshold)
+    importance_df=pd.DataFrame({'feature':pd.Series(label_name),
+                        'max_impression':0,'max_click':0,'max_spend':0,'max_ctr':0,'max_cpc':0,'max_score':0,
+                        'min_impression':0,'min_click':0,'min_spend':0,'min_ctr':0,'min_cpc':0,'min_score':0,
+                        'importance':0})
+    
+    for name in label_name:
+        print name
+        f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
+        temp=df.groupby([name]).agg(f).reset_index()
+        temp=temp[temp.impression>impression_threshold]
+        temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
+        temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0)
+    
+        if temp.shape[0]<=1:
+            importance_df=importance_df[importance_df.feature!=name]
+        else:
+            max_score= temp.score.max()
+            min_score= temp.score.min()
+            importance_df.importance[importance_df.feature==name]= max_score-min_score
+            importance_df.max_score[importance_df.feature==name]= max_score
+            importance_df.min_score[importance_df.feature==name]= min_score
+            importance_df.max_impression[importance_df.feature==name]= temp.impression[temp.score==max_score].values
+            importance_df.min_impression[importance_df.feature==name]= temp.impression[temp.score==min_score].values
+            importance_df.max_click[importance_df.feature==name]= temp.link_clicks[temp.score==max_score].values
+            importance_df.min_click[importance_df.feature==name]= temp.link_clicks[temp.score==min_score].values
+            importance_df.max_spend[importance_df.feature==name]= temp.spend[temp.score==max_score].values
+            importance_df.min_spend[importance_df.feature==name]= temp.spend[temp.score==min_score].values
+            importance_df.max_ctr[importance_df.feature==name]= temp.CTR[temp.score==max_score].values
+            importance_df.min_ctr[importance_df.feature==name]= temp.CTR[temp.score==min_score].values
+            importance_df.max_cpc[importance_df.feature==name]= temp.CPC[temp.score==max_score].values
+            importance_df.min_cpc[importance_df.feature==name]= temp.CPC[temp.score==min_score].values
+                
+    importance_df=importance_df.sort_values(by=['importance'], ascending=False).reset_index() 
+    importance_df['percentage']=  importance_df.importance / importance_df.importance.sum()
+    top_label=importance_df['feature'][0]
+    
+    return top_label
+
+
+
 
 
 ############################################ best_feature_and_importance ############################################ 
@@ -322,11 +475,10 @@ def find_importance(analysis_df):
 ##### output 
 #####       a dataframe that provides the best feature and importance for the targeted dimension, such as {gender, age}
 
-def find_feature_and_importance(analysis_df,segment,value):
+def find_feature_and_importance(analysis_df,segment,value,df,gv_df_label):
     
-    analysis_df=analysis_df[analysis_df[segment]==value]
-    best_feature=find_feature(analysis_df,segment)
-    importance=find_importance(analysis_df)
+    best_feature=find_feature(analysis_df,segment,value,df,gv_df_label)
+    importance=find_importance(analysis_df,segment,value,df,gv_df_label)
 
     feature_and_importance=pd.merge(best_feature, importance, on=['feature'], how='left')
     feature_and_importance=feature_and_importance.sort_values(by='importance', ascending=False)
@@ -336,12 +488,6 @@ def find_feature_and_importance(analysis_df,segment,value):
                                                     'value',
                                                     'percentage',
                                                     'importance',
-                                                    'impression',
-                                                    'link_clicks',
-                                                    'spend',
-                                                    'CTR',
-                                                    'CPC',
-                                                    'score',
                                                     'max_click',
                                                     'max_cpc',
                                                     'max_ctr',
@@ -359,6 +505,64 @@ def find_feature_and_importance(analysis_df,segment,value):
     
     return feature_and_importance
     
+
+
+############################################ image_label_generator ########################
+##### input
+#####       df: a data frame that is filtered and ready for analysis
+#####       label_threshold: the threshold for the label count, that is, the label count number
+#####                         should exceend the threshold to be included in the new column.
+#####       gv_df_label: a data frame contains 'ad_id' and 'label'
+##### output 
+#####       a data frame with label columns
+def description_extract(mylist):
+    return [item['description'] for item in mylist]
+
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+
+def get_label_name(df,gv_df_label,label_threshold):
+    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    
+    label_flatten=flatten(gv_df_label['label'])
+    label_name=pd.Series(label_flatten).value_counts()[pd.Series(label_flatten).value_counts() >label_threshold].index
+    return label_name
+
+def image_label_generator(df,label_threshold,gv_df_label):
+    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    
+    label_name=get_label_name(df,gv_df_label,100)
+    label_df=pd.DataFrame({'ad_id':gv_df_label['ad_id']})
+    label_df=label_df.reset_index(drop=True)
+    
+    for label in label_name:
+        label_df[label]=pd.Series([label in list for list in gv_df_label['label']])
+    
+      
+    #drop_columns=['ad_type','creative_id','face_annotation','height','id','image_properties_annotation',
+    #            'image_url','label_annotations','landmarking_confidence','logo_annotations',
+    #            'safe_search_annotation','subtitle','text_annotations','title','width']
+    #gv_df=gv_df.drop(drop_columns, axis=1)     
+    #gv_df=gv_df.reset_index(drop=True)
+        
+    result_df = pd.merge(df,label_df, on='ad_id', how='left')
+    return result_df    
+    
+    
+############################################ gv_data_reader ########################
+##### input
+#####       googlevisionPath: the path to the gv dataset
+##### output 
+#####       a data frame contains 'ad_id' and 'label'
+def gv_data_reader(googlevisionPath):
+    gv_df = pd.read_json(googlevisionPath)
+    gv_label=[description_extract(item) for item in gv_df['label_annotations'].apply(lambda m: json.loads(m) if m!="" else "")] # get the label
+    result_df=pd.DataFrame({'ad_id':gv_df['ad_id'],'label':pd.Series(gv_label)})
+    return result_df
+    
+
+
 
 ########################################################################################
 ########################################### api function ###############################
@@ -393,19 +597,20 @@ def recommendation(campaign_id):
     
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data_analysis=column_selector(campaign_data)
+    campaign_data=image_label_generator(campaign_data,100,gv_df_label)
     
-    feature_and_importance_female.iloc[0][0]
-    feature_and_importance_female = find_feature_and_importance(campaign_data_analysis,'gender','female')
-    feature_and_importance_male = find_feature_and_importance(campaign_data_analysis,'gender','male')
-    feature_and_importance_unknown = find_feature_and_importance(campaign_data_analysis,'gender','unknown')
+    campaign_data_analysis=column_selector(campaign_data,gv_df_label)
     
-    feature_and_importance_1824 = find_feature_and_importance(campaign_data_analysis,'age','18-24')
-    feature_and_importance_2534 = find_feature_and_importance(campaign_data_analysis,'age','25-34')
-    feature_and_importance_3544 = find_feature_and_importance(campaign_data_analysis,'age','35-44')
-    feature_and_importance_4554 = find_feature_and_importance(campaign_data_analysis,'age','45-54')
-    feature_and_importance_5564 = find_feature_and_importance(campaign_data_analysis,'age','55-64')
-    feature_and_importance_65 = find_feature_and_importance(campaign_data_analysis,'age','65+')
+    feature_and_importance_female = find_feature_and_importance(campaign_data_analysis,'gender','female',campaign_data,gv_df_label)
+    feature_and_importance_male = find_feature_and_importance(campaign_data_analysis,'gender','male',campaign_data,gv_df_label)
+    feature_and_importance_unknown = find_feature_and_importance(campaign_data_analysis,'gender','unknown',campaign_data,gv_df_label)
+    
+    feature_and_importance_1824 = find_feature_and_importance(campaign_data_analysis,'age','18-24',campaign_data,gv_df_label)
+    feature_and_importance_2534 = find_feature_and_importance(campaign_data_analysis,'age','25-34',campaign_data,gv_df_label)
+    feature_and_importance_3544 = find_feature_and_importance(campaign_data_analysis,'age','35-44',campaign_data,gv_df_label)
+    feature_and_importance_4554 = find_feature_and_importance(campaign_data_analysis,'age','45-54',campaign_data,gv_df_label)
+    feature_and_importance_5564 = find_feature_and_importance(campaign_data_analysis,'age','55-64',campaign_data,gv_df_label)
+    feature_and_importance_65 = find_feature_and_importance(campaign_data_analysis,'age','65+',campaign_data,gv_df_label)
     
     df_list=[feature_and_importance_female,feature_and_importance_male,feature_and_importance_unknown,
     feature_and_importance_1824,feature_and_importance_2534,feature_and_importance_3544,
@@ -421,9 +626,9 @@ def recommendation(campaign_id):
         temp_dict=temp.to_dict(orient='index')
         
         result_df.loc[index]=pd.Series({'segment':feature_and_importance_female.columns[0],'value':feature_and_importance_female.iloc[0][0],'recommend':temp_dict})
-
-    result_json=result_df.to_dict(orient='records')
     
+    result_json=result_df.to_dict(orient='records')   
+
     return jsonify(result_json)
 
 
@@ -441,6 +646,8 @@ def best_ad_by_segment(campaign_id):
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
     
+    gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(campaign_data.ad_id.unique())]
+    
     best_ad_gender=find_best_ad_by_segment(campaign_data,'gender')
     best_ad_age=find_best_ad_by_segment(campaign_data,'age')
     
@@ -452,7 +659,7 @@ def best_ad_by_segment(campaign_id):
     result_df = pd.DataFrame(columns=['segment','value','ad_id','feature'])
     
     for index,ad_id in enumerate(df_adid['ad_id']):
-        ad_feature=find_ad_feature(campaign_data, [ad_id])
+        ad_feature=find_ad_feature(campaign_data, gv_df_label_filtered, [ad_id])
         ad_feature=ad_feature[['feature','value']].T
         ad_feature.columns = ad_feature.iloc[0]
         ad_feature.drop(ad_feature.index[0:1], inplace=True)
@@ -464,4 +671,10 @@ def best_ad_by_segment(campaign_id):
     result_df['ad_id'] = map(int, result_df['ad_id'])
     result_json=result_df.to_dict(orient='records')
     return jsonify(result_json)
+
+
+
+
+
+
 
