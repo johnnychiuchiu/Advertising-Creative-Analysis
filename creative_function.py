@@ -625,7 +625,7 @@ def recommendation(campaign_id):
         temp['priority']=range(1, temp.shape[0]+1)
         temp_dict=temp.to_dict(orient='index')
         
-        result_df.loc[index]=pd.Series({'segment':feature_and_importance_female.columns[0],'value':feature_and_importance_female.iloc[0][0],'recommend':temp_dict})
+        result_df.loc[index]=pd.Series({'segment':df.columns[0],'value':df.iloc[0][0],'recommend':temp_dict})
     
     result_json=result_df.to_dict(orient='records')   
 
