@@ -81,6 +81,7 @@ def best_ad_by_segment(campaign_id):
         
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
+    campaign_data=image_label_generator(campaign_data,100,gv_df_label)
     
     best_ad_gender=find_best_ad_by_segment(campaign_data,'gender')
     best_ad_age=find_best_ad_by_segment(campaign_data,'age')
@@ -94,7 +95,7 @@ def best_ad_by_segment(campaign_id):
     result_df = pd.DataFrame(columns=['segment','value','ad_id','feature'])
     
     for index,ad_id in enumerate(df_adid['ad_id']):
-        ad_feature=find_ad_feature(campaign_data, [ad_id])
+        ad_feature=find_ad_feature(campaign_data, gv_df_label, [ad_id])
         ad_feature=ad_feature[['feature','value']].T
         ad_feature.columns = ad_feature.iloc[0]
         ad_feature.drop(ad_feature.index[0:1], inplace=True)
