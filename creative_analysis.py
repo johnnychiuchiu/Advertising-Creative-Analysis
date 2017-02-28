@@ -7,7 +7,9 @@ import numpy as np
 from creative_function import *
 from initDataFrame import *
 
-
+impression_threshold=1000
+label_threshold=100
+  
 
 
 ######################
@@ -31,9 +33,7 @@ etungo_df=mydata[mydata.account_id == 1618494121752703]
 etungo_df=brand_column_generator(etungo_df,'大同|etungo')
 #pd.isnull(etungo_df).any(axis=0)
 etungo_df=metric_generator(etungo_df)
-
-etungo_df=image_label_generator(etungo_df,100,gv_df_label)
-
+etungo_df=image_label_generator(etungo_df,gv_df_label,label_threshold)
 
 
 
@@ -42,11 +42,6 @@ etungo_df=image_label_generator(etungo_df,100,gv_df_label)
 ########################################
 
 best_ad=find_best_ad(etungo_df)
-
-#temp=best_ad[['ad_id','ranking']].to_dict(orient='records')
-
-
-
 
 
 
@@ -58,8 +53,8 @@ best_ad_gender=find_best_ad_by_segment(etungo_df,'gender')
 best_ad_age=find_best_ad_by_segment(etungo_df,'age')
 
 a=find_ad_feature(etungo_df, gv_df_label, [6055843154405])
-#best_ad_gender_feature=find_ad_feature(etungo_df, best_ad_gender.ad_id.unique().tolist())
-#best_ad_age_feature=find_ad_feature(etungo_df, best_ad_age.ad_id.unique().tolist())
+#best_ad_gender_feature=find_ad_feature(etungo_df, gv_df_label, best_ad_gender.ad_id.unique().tolist())
+
 
 
 
@@ -73,40 +68,26 @@ a=find_ad_feature(etungo_df, gv_df_label, [6055843154405])
 etungo_df_analysis=column_selector(etungo_df,gv_df_label)
 #etungo_df_analysis.to_csv('etungo_df_analysis.csv', sep=',', encoding='utf-8')
 #pd.isnull(etungo_df_analysis).any(axis=0)
-#etungo_df_analysis.columns
-
-
-
-
-
 
 
 
 #############################################
 #####find the best feature for each group ###
 #############################################
-#etungo_df_analysis=metric_generator(etungo_df_analysis)
+
 final_feature=find_feature(etungo_df_analysis,'age','18-24',etungo_df,gv_df_label)
-
 #final_feature.to_csv('final_feature.csv', sep=',', encoding='utf-8')
-#etungo_df_analysis.head(10) 
-#test=final_feature[final_feature.variable=='title_brand']
-#test.head(20)
 
-final_label=find_label_feature(etungo_df[etungo_df.age=='18-24'],gv_df_label,100,'age')
+final_label=find_label_feature(etungo_df[etungo_df.age=='18-24'],gv_df_label,'age')
+#final_label=find_label_feature(etungo_df[etungo_df.gender=='female'],gv_df_label,'gender')
 
-
+top_label=find_top_label(df,gv_df_label)
 
 ###################################################
 #####find the feature importance for each group ###
 ###################################################
 
 importance_df=find_importance(etungo_df_analysis,'age','18-24',etungo_df,gv_df_label)
-
-
-
-
-
 
     
 #######################################################
