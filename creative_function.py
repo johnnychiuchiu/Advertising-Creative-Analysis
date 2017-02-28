@@ -4,6 +4,10 @@ import numpy as np
 import copy
 from flask import jsonify
 import json
+
+impression_threshold=1000
+label_threshold=100
+
 ############################################ print_full ############################################ 
 ##### goal: print the full pandas data frame
 ##### input
@@ -16,6 +20,19 @@ def print_full(x):
     with pd.option_context('display.max_rows', None, 'display.max_columns', x.shape[1] ):
         print(x)
 
+
+
+############################################ gv_data_reader ########################
+##### input
+#####       googlevisionPath: the path to the gv dataset
+##### output 
+#####       a data frame contains 'ad_id' and 'label'
+def gv_data_reader(googlevisionPath):
+    gv_df = pd.read_json(googlevisionPath)
+    gv_label=[description_extract(item) for item in gv_df['label_annotations'].apply(lambda m: json.loads(m) if m!="" else "")] # get the label
+    result_df=pd.DataFrame({'ad_id':gv_df['ad_id'],'label':pd.Series(gv_label)})
+    return result_df
+    
 
 
 ############################################ webClickScore ############################################ 
@@ -62,6 +79,66 @@ def metric_generator(df):
 
 
 
+############################################ brand_column_generator ############################################ 
+##### input
+#####       df: craetive table
+#####       brand_keywords: a vector of the brand keywords
+##### output 
+#####       a table appended with brand related columns 
+
+def brand_column_generator(df, brand_keywords):
+    
+    # title_brand
+    df['title_brand']=df['title'].str.contains(brand_keywords.decode('utf-8'))
+    
+    # sub_title_brand
+    df['subtitle_brand']=df['subtitle'].str.contains(brand_keywords.decode('utf-8'))
+    
+    # ad_content_brand
+    df['content_brand']=df['content'].str.contains(brand_keywords.decode('utf-8'))
+    
+    return df
+
+
+
+############################################ image_label_generator ########################
+##### input
+#####       df: a data frame that is filtered and ready for analysis
+#####       label_threshold: the threshold for the label count, that is, the label count number
+#####                         should exceend the threshold to be included in the new column.
+#####       gv_df_label: a data frame contains 'ad_id' and 'label'
+##### output 
+#####       a data frame with label columns
+def description_extract(mylist):
+    return [item['description'] for item in mylist]
+
+#combine multiple list into one list
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+
+#get the label name which number count over label_threshold
+def get_label_name(df,gv_df_label,label_threshold):
+    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    
+    label_flatten=flatten(gv_df_label['label'])
+    label_name=pd.Series(label_flatten).value_counts()[pd.Series(label_flatten).value_counts() >label_threshold].index
+    return label_name
+
+def image_label_generator(df,gv_df_label,label_threshold):
+    gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    
+    label_name=get_label_name(df,gv_df_label_filtered,label_threshold)
+    label_df=pd.DataFrame({'ad_id':gv_df_label_filtered['ad_id']})
+    label_df=label_df.reset_index(drop=True)
+    
+    for label in label_name:
+        label_df[label]=pd.Series([label in list for list in gv_df_label_filtered['label']])
+    
+    result_df = pd.merge(df,label_df, on='ad_id', how='left')
+    return result_df    
+    
+    
+
 ############################################ find_best_ad ############################################ 
 ##### input
 #####       df: craetive table
@@ -70,8 +147,6 @@ def metric_generator(df):
 
 def find_best_ad(df):
   
-    impression_threshold=1000
-
     f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
     temp=df.groupby(['ad_id']).agg(f).reset_index()
     temp=temp[temp.impression>impression_threshold]
@@ -98,7 +173,6 @@ def find_best_ad(df):
 #####       a dataframe that provides the best ad for the targeted dimension, such as {gender, age}
 
 def find_best_ad_by_segment(df,segment):
-    impression_threshold=1000
     
     f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
     temp=df.groupby([segment]+['ad_id']).agg(f).reset_index()
@@ -114,31 +188,12 @@ def find_best_ad_by_segment(df,segment):
     return result
 
 
-############################################ brand_column_generator ############################################ 
-##### input
-#####       df: craetive table
-#####       brand_keywords: a vector of the brand keywords
-##### output 
-#####       a table appended with brand related columns 
-
-def brand_column_generator(df, brand_keywords):
-    
-    # title_brand
-    df['title_brand']=df['title'].str.contains(brand_keywords.decode('utf-8'))
-    
-    # sub_title_brand
-    df['subtitle_brand']=df['subtitle'].str.contains(brand_keywords.decode('utf-8'))
-    
-    # ad_content_brand
-    df['content_brand']=df['content'].str.contains(brand_keywords.decode('utf-8'))
-    
-    return df
 
 
 
 ############################################ find_ad_feature ############################################ 
 ##### input
-#####       df: a data frame which columns contains ad_id and columns ready for analysis, such as etungo_df
+#####       df: a data frame which columns contains ad_id and columns ready for analysis including label, such as etungo_df
 #####       ad_id: list of ad_id, such as [123,456]. For pandas dataframe, use df.ad_id.unique().tolist()
 ##### output 
 #####       a dataframe contains the feature of this ad_id
@@ -152,8 +207,8 @@ def find_ad_feature(df,gv_df_label,ad_id):
                         'spend','CPC','CTR','score']
     df=df.drop(drop_columns, axis=1)
     
-    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
-    drop_columns=get_label_name(df,gv_df_label,100)
+    gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
+    drop_columns=get_label_name(df,gv_df_label_filtered,label_threshold)
     df=df.drop(drop_columns, axis=1)
     
     df_adid=df[df['ad_id'].isin(ad_id)]
@@ -188,7 +243,7 @@ def column_selector(df,gv_df_label):
                     'interest','page_id','subtitle','title']
     result_df=result_df.drop(drop_columns, axis=1)
     
-    drop_columns=get_label_name(df,gv_df_label,100)
+    drop_columns=get_label_name(df,gv_df_label,label_threshold)
     result_df=result_df.drop(drop_columns, axis=1)
     
     
@@ -203,12 +258,6 @@ def column_selector(df,gv_df_label):
 #####       a dataframe that provides the best feature for the targeted segment, such as {gender, age}
 def find_feature(analysis_df,segment,value,df,gv_df_label):
     final_feature = pd.DataFrame()
-    impression_threshold=1000
-    label_threshold=100
-    
-    #gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
-    #drop_columns=get_label_name(df,gv_df_label,100)
-    #analysis_df=analysis_df.drop(drop_columns, axis=1)
     
     analysis_df_filtered=analysis_df[analysis_df[segment]==value]
     df_filtered=df[df[segment]==value]
@@ -235,8 +284,8 @@ def find_feature(analysis_df,segment,value,df,gv_df_label):
             
             final_feature=pd.concat([final_feature, temp_reshape])
     
-    #merge the recommend label row back to final_feature
-    final_label=find_label_feature(df_filtered,gv_df_label,label_threshold,segment)
+    #merge the recommend label dataframe back to final_feature
+    final_label=find_label_feature(df_filtered,gv_df_label,segment)
     final_feature = pd.concat([final_feature, final_label])[['feature',segment,'value']] 
             
     final_feature=final_feature.sort_values(by=[segment], ascending=True)
@@ -249,12 +298,19 @@ def find_feature(analysis_df,segment,value,df,gv_df_label):
 ##### input
 #####       analysis_df: a table with all columns that are ready for analysis
 #####       segment: a segment type, such as 'gender','age'
+#####       value: the targeted value for the input segment
+#####       df: a dataframe contains id, label, analysis, and metrics related columns
+#####       gv_df_label: a data frame contains id, and label columns
 ##### output 
 #####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
 
 def find_importance(analysis_df,segment,value,df,gv_df_label):
-    impression_threshold=1000
     
+    if segment=='gender':
+        analysis_df=analysis_df.drop(['age'], axis=1)
+    elif segment=='age':   
+        analysis_df=analysis_df.drop(['gender'], axis=1)
+
     analysis_df=analysis_df[analysis_df[segment]==value]
     df=df[df[segment]==value]
 
@@ -306,12 +362,13 @@ def find_importance(analysis_df,segment,value,df,gv_df_label):
 ##### goal: find the label feature for each dimension
 ##### input
 #####       df: a table with all columns that are ready for analysis, it's different from find_importance's analysis_df
+#####       gv_df_label: a data frame contains id, and label columns
 #####       segment: a segment type, such as 'gender','age'
 ##### output 
-#####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
-def find_label_feature(df,gv_df_label,label_threshold,segment):
+#####       a dataframe that provides the top 5 label for the targeted dimension, such as {gender, age}.
+#####       the column of the output dataframe are 'segment','feature','value'
+def find_label_feature(df,gv_df_label,segment):
     result_df = pd.DataFrame(columns=[segment,'feature','value'])
-    impression_threshold=1000
     
     for segment_value in df[segment].unique():
         print segment_value
@@ -365,13 +422,12 @@ def find_label_feature(df,gv_df_label,label_threshold,segment):
 ############################################ find_top_label ############################################ 
 ##### goal: find the label importance for each dimension
 ##### input
-#####       df: a table with all columns that are ready for analysis, it's different from find_importance's analysis_df
-#####       segment: a segment type, such as 'gender','age'
+#####       df: a table with all columns including label that are ready for analysis, it's different from find_importance's analysis_df
+#####       gv_df_label
 ##### output 
-#####       a dataframe that provides the feature importance ranking for the targeted dimension, such as {gender, age}
+#####       a label with the top importance percentage for the input dataframe.
 def find_top_label(df,gv_df_label):
-    label_threshold=100
-    impression_threshold=1000
+
     gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
     label_name=get_label_name(df,gv_df_label_filtered,label_threshold)
     importance_df=pd.DataFrame({'feature':pd.Series(label_name),
@@ -456,61 +512,6 @@ def find_feature_and_importance(analysis_df,segment,value,df,gv_df_label):
     
 
 
-############################################ image_label_generator ########################
-##### input
-#####       df: a data frame that is filtered and ready for analysis
-#####       label_threshold: the threshold for the label count, that is, the label count number
-#####                         should exceend the threshold to be included in the new column.
-#####       gv_df_label: a data frame contains 'ad_id' and 'label'
-##### output 
-#####       a data frame with label columns
-def description_extract(mylist):
-    return [item['description'] for item in mylist]
-
-
-def flatten(l):
-    return [item for sublist in l for item in sublist]
-
-def get_label_name(df,gv_df_label,label_threshold):
-    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
-    
-    label_flatten=flatten(gv_df_label['label'])
-    label_name=pd.Series(label_flatten).value_counts()[pd.Series(label_flatten).value_counts() >label_threshold].index
-    return label_name
-
-def image_label_generator(df,label_threshold,gv_df_label):
-    gv_df_label = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
-    
-    label_name=get_label_name(df,gv_df_label,100)
-    label_df=pd.DataFrame({'ad_id':gv_df_label['ad_id']})
-    label_df=label_df.reset_index(drop=True)
-    
-    for label in label_name:
-        label_df[label]=pd.Series([label in list for list in gv_df_label['label']])
-    
-      
-    #drop_columns=['ad_type','creative_id','face_annotation','height','id','image_properties_annotation',
-    #            'image_url','label_annotations','landmarking_confidence','logo_annotations',
-    #            'safe_search_annotation','subtitle','text_annotations','title','width']
-    #gv_df=gv_df.drop(drop_columns, axis=1)     
-    #gv_df=gv_df.reset_index(drop=True)
-        
-    result_df = pd.merge(df,label_df, on='ad_id', how='left')
-    return result_df    
-    
-    
-############################################ gv_data_reader ########################
-##### input
-#####       googlevisionPath: the path to the gv dataset
-##### output 
-#####       a data frame contains 'ad_id' and 'label'
-def gv_data_reader(googlevisionPath):
-    gv_df = pd.read_json(googlevisionPath)
-    gv_label=[description_extract(item) for item in gv_df['label_annotations'].apply(lambda m: json.loads(m) if m!="" else "")] # get the label
-    result_df=pd.DataFrame({'ad_id':gv_df['ad_id'],'label':pd.Series(gv_label)})
-    return result_df
-    
-
 
 
 ########################################################################################
@@ -546,7 +547,7 @@ def recommendation(campaign_id):
     
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data=image_label_generator(campaign_data,100,gv_df_label)
+    campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     campaign_data_analysis=column_selector(campaign_data,gv_df_label)
     
@@ -594,7 +595,7 @@ def best_ad_by_segment(campaign_id):
         
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data=image_label_generator(campaign_data,100,gv_df_label)
+    campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     #gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(campaign_data.ad_id.unique())]
     
