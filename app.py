@@ -21,7 +21,6 @@ gv_df_label = gv_data_reader(googlevisionPath)
 
 
 
-
 @app.route('/best_ad/v1.0/<campaign_id>', methods=['GET'])
 def best_ad(campaign_id):
     campaign_ids=campaign_id.split(',')
@@ -40,7 +39,7 @@ def recommendation(campaign_id):
     
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data=image_label_generator(campaign_data,100,gv_df_label)
+    campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     campaign_data_analysis=column_selector(campaign_data,gv_df_label)
     
@@ -81,7 +80,7 @@ def best_ad_by_segment(campaign_id):
         
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data=image_label_generator(campaign_data,100,gv_df_label)
+    campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     best_ad_gender=find_best_ad_by_segment(campaign_data,'gender')
     best_ad_age=find_best_ad_by_segment(campaign_data,'age')
