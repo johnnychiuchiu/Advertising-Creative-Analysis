@@ -136,57 +136,6 @@ def brand_column_generator(df, brand_keywords):
 
 
 
-############################################ analysis_column_generator ############################################ 
-##### input
-#####       df: craetive table
-#####       title_colname: the colname of title
-#####       sub_title_colname: the colname of subtitle
-#####       ad_content_colname: the colname of ad content
-#####       brand_keywords: a vector of the brand keywords
-##### output 
-#####       a table with analysis columns that ready for analysis  
-def analysis_column_generator(df,title_colname, sub_title_colname, ad_content_colname, brand_keywords):
-    ###ad information related
-    #title: 25 characters, sub_title: 30 characters, ad_content: 90 characters
-    title_max_length=25
-    sub_title_max_length=30
-    ad_content_max_length=90
-    
-    
-    # title_length
-    title_group_names = ['Short(0-12)','Medium(13-25)','Long(>25)']
-    df[title_colname] = df[title_colname].str.strip()
-    df['title_length'] = df[title_colname].str.len()
-    bins = [0, title_max_length*0.5, title_max_length, float("inf")]
-    df['title_length_interval'] = pd.cut(df['title_length'], bins, labels=title_group_names)
-
-    # title_brand
-    df['title_brand']=df[title_colname].str.contains(brand_keywords.decode('utf-8'))
-    
-    # sub_title_length
-    subtitle_group_names = ['Short(0-15)','Medium(16-30)','Long(>30)']
-    df[sub_title_colname] = df[sub_title_colname].str.strip()
-    df['sub_title_length'] = df[sub_title_colname].str.len()    
-    bins = [0, sub_title_max_length*0.5, sub_title_max_length, float("inf")]
-    df['sub_title_length_interval'] = pd.cut(df['sub_title_length'], bins, labels=subtitle_group_names)
-
-    # sub_title_brand
-    df['sub_title_brand']=df[sub_title_colname].str.contains(brand_keywords.decode('utf-8'))
-    
-    # ad_content_length
-    ad_content_group_names = ['Short(0-45)','Medium(46-90)','Long(>90)']
-    df[ad_content_colname] = df[ad_content_colname].str.strip()
-    df['ad_content_length'] = df[ad_content_colname].str.len()    
-    bins = [0, ad_content_max_length*0.5, ad_content_max_length, float("inf")]
-    df['ad_content_length_interval'] = pd.cut(df['ad_content_length'], bins, labels=ad_content_group_names)
-
-    # ad_content_brand
-    df['ad_content_brand']=df[ad_content_colname].str.contains(brand_keywords.decode('utf-8'))
-    
-    return df
-
-
-
 ############################################ find_ad_feature ############################################ 
 ##### input
 #####       df: a data frame which columns contains ad_id and columns ready for analysis, such as etungo_df
