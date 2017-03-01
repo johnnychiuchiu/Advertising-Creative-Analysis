@@ -41,18 +41,16 @@ def recommendation(campaign_id):
     campaign_data=metric_generator(campaign_data)
     campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
-    campaign_data_analysis=column_selector(campaign_data,gv_df_label)
+    feature_and_importance_female = find_feature_and_importance('gender','female',campaign_data,gv_df_label)
+    feature_and_importance_male = find_feature_and_importance('gender','male',campaign_data,gv_df_label)
+    feature_and_importance_unknown = find_feature_and_importance('gender','unknown',campaign_data,gv_df_label)
     
-    feature_and_importance_female = find_feature_and_importance(campaign_data_analysis,'gender','female',campaign_data,gv_df_label)
-    feature_and_importance_male = find_feature_and_importance(campaign_data_analysis,'gender','male',campaign_data,gv_df_label)
-    feature_and_importance_unknown = find_feature_and_importance(campaign_data_analysis,'gender','unknown',campaign_data,gv_df_label)
-    
-    feature_and_importance_1824 = find_feature_and_importance(campaign_data_analysis,'age','18-24',campaign_data,gv_df_label)
-    feature_and_importance_2534 = find_feature_and_importance(campaign_data_analysis,'age','25-34',campaign_data,gv_df_label)
-    feature_and_importance_3544 = find_feature_and_importance(campaign_data_analysis,'age','35-44',campaign_data,gv_df_label)
-    feature_and_importance_4554 = find_feature_and_importance(campaign_data_analysis,'age','45-54',campaign_data,gv_df_label)
-    feature_and_importance_5564 = find_feature_and_importance(campaign_data_analysis,'age','55-64',campaign_data,gv_df_label)
-    feature_and_importance_65 = find_feature_and_importance(campaign_data_analysis,'age','65+',campaign_data,gv_df_label)
+    feature_and_importance_1824 = find_feature_and_importance('age','18-24',campaign_data,gv_df_label)
+    feature_and_importance_2534 = find_feature_and_importance('age','25-34',campaign_data,gv_df_label)
+    feature_and_importance_3544 = find_feature_and_importance('age','35-44',campaign_data,gv_df_label)
+    feature_and_importance_4554 = find_feature_and_importance('age','45-54',campaign_data,gv_df_label)
+    feature_and_importance_5564 = find_feature_and_importance('age','55-64',campaign_data,gv_df_label)
+    feature_and_importance_65 = find_feature_and_importance('age','65+',campaign_data,gv_df_label)
     
     df_list=[feature_and_importance_female,feature_and_importance_male,feature_and_importance_unknown,
     feature_and_importance_1824,feature_and_importance_2534,feature_and_importance_3544,

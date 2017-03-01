@@ -75,7 +75,7 @@ df_content_keyword['ad_id']=ad_id
 cols_sort=['ad_id','feature','value']
 df_content_keyword=df_content_keyword[cols_sort]
 
-a=[1,2,3,'a'].
+
 ##############################################
 #####filter and generate analyzing columns ###
 ##############################################
@@ -83,7 +83,7 @@ a=[1,2,3,'a'].
 ### ad performance related: age, gender, impression, click
 ### google vision related: faceCount, majorColor, textInImage, logoInImage, adult, medical, spoof, violence, image category
 
-etungo_df_analysis=column_selector(etungo_df,gv_df_label)
+#etungo_df_analysis=column_selector(etungo_df,gv_df_label)
 #etungo_df_analysis.to_csv('etungo_df_analysis.csv', sep=',', encoding='utf-8')
 #pd.isnull(etungo_df_analysis).any(axis=0)
 
@@ -93,7 +93,7 @@ etungo_df_analysis=column_selector(etungo_df,gv_df_label)
 #####find the best feature for each group ###
 #############################################
 
-final_feature=find_feature(etungo_df_analysis,'age','18-24',etungo_df,gv_df_label)
+final_feature=find_feature('age','18-24',etungo_df,gv_df_label)
 #final_feature.to_csv('final_feature.csv', sep=',', encoding='utf-8')
 
 final_label=find_label_feature(etungo_df[etungo_df.age=='18-24'],gv_df_label,'age')
@@ -105,7 +105,7 @@ top_label=find_top_label(df,gv_df_label)
 #####find the feature importance for each group ###
 ###################################################
 
-importance_df=find_importance(etungo_df_analysis,'age','18-24',etungo_df,gv_df_label)
+importance_df=find_importance('age','18-24',etungo_df,gv_df_label)
 
     
 #######################################################
@@ -116,16 +116,16 @@ importance_df=find_importance(etungo_df_analysis,'age','18-24',etungo_df,gv_df_l
 #print_full(a)
   
 
-feature_and_importance_female = find_feature_and_importance(etungo_df_analysis,'gender','female',etungo_df,gv_df_label)
-feature_and_importance_male = find_feature_and_importance(etungo_df_analysis,'gender','male',etungo_df,gv_df_label)
-feature_and_importance_unknown = find_feature_and_importance(etungo_df_analysis,'gender','unknown',etungo_df,gv_df_label)
+feature_and_importance_female = find_feature_and_importance('gender','female',etungo_df,gv_df_label)
+feature_and_importance_male = find_feature_and_importance('gender','male',etungo_df,gv_df_label)
+feature_and_importance_unknown = find_feature_and_importance('gender','unknown',etungo_df,gv_df_label)
 
-feature_and_importance_1824 = find_feature_and_importance(etungo_df_analysis,'age','18-24',etungo_df,gv_df_label)
-feature_and_importance_2534 = find_feature_and_importance(etungo_df_analysis,'age','25-34',etungo_df,gv_df_label)
-feature_and_importance_3544 = find_feature_and_importance(etungo_df_analysis,'age','35-44',etungo_df,gv_df_label)
-feature_and_importance_4554 = find_feature_and_importance(etungo_df_analysis,'age','45-54',etungo_df,gv_df_label)
-feature_and_importance_5564 = find_feature_and_importance(etungo_df_analysis,'age','55-64',etungo_df,gv_df_label)
-feature_and_importance_65 = find_feature_and_importance(etungo_df_analysis,'age','65+',etungo_df,gv_df_label)
+feature_and_importance_1824 = find_feature_and_importance('age','18-24',etungo_df,gv_df_label)
+feature_and_importance_2534 = find_feature_and_importance('age','25-34',etungo_df,gv_df_label)
+feature_and_importance_3544 = find_feature_and_importance('age','35-44',etungo_df,gv_df_label)
+feature_and_importance_4554 = find_feature_and_importance('age','45-54',etungo_df,gv_df_label)
+feature_and_importance_5564 = find_feature_and_importance('age','55-64',etungo_df,gv_df_label)
+feature_and_importance_65 = find_feature_and_importance('age','65+',etungo_df,gv_df_label)
 
 
 
