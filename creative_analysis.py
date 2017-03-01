@@ -7,9 +7,6 @@ import numpy as np
 from creative_function import *
 from initDataFrame import *
 
-impression_threshold=1000
-label_threshold=100
-  
 
 
 ######################
@@ -23,6 +20,10 @@ mydata['account_name'] = mydata['account_name'].str.strip()
 
 gv_df_label = gv_data_reader(googlevisionPath)
 
+content_df = keyword_data_reader(mydata, 'content')
+title_df = keyword_data_reader(mydata, 'title')
+subtitle_df = keyword_data_reader(mydata, 'subtitle')
+
 
 ######################################################################
 ###########################
@@ -35,6 +36,7 @@ etungo_df=brand_column_generator(etungo_df,'大同|etungo')
 etungo_df=metric_generator(etungo_df)
 etungo_df=image_label_generator(etungo_df,gv_df_label,label_threshold)
 
+#etungo_df=keyword_generator(etungo_df,content_df,10)
 
 
 ########################################
@@ -55,9 +57,25 @@ best_ad_age=find_best_ad_by_segment(etungo_df,'age')
 a=find_ad_feature(etungo_df, gv_df_label, [6055843154405])
 #best_ad_gender_feature=find_ad_feature(etungo_df, gv_df_label, best_ad_gender.ad_id.unique().tolist())
 
+df=copy.deepcopy(etungo_df)
+ad_id=[6055843154405]
 
+df_backup = copy.deepcopy(df) # for keyword matching
+df_backup_adid=df_backup[df_backup['ad_id'].isin(ad_id)]
+content_column=content_df.columns[0]
+df_content_keyword=content_df[content_df[content_column].isin(df_backup_adid[content_column])].reset_index()
+df_content_keyword['keywords2']=df_content_keyword['keywords'][0][0:5]
 
+df_content_keyword['keywords2']=df_content_keyword.apply(lambda x: x['keywords'][0:5])
 
+df_content_keyword=df_content_keyword.rename(columns = {'keywords':'value'})
+df_content_keyword['feature']=content_column+'_keyword'
+del df_content_keyword['content']
+df_content_keyword['ad_id']=ad_id
+cols_sort=['ad_id','feature','value']
+df_content_keyword=df_content_keyword[cols_sort]
+
+a=[1,2,3,'a'].
 ##############################################
 #####filter and generate analyzing columns ###
 ##############################################
