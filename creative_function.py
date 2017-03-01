@@ -253,8 +253,8 @@ def column_selector(df,gv_df_label):
                     'interest','page_id','subtitle','title']
     result_df=result_df.drop(drop_columns, axis=1)
     
-    drop_columns=get_label_name(df,gv_df_label,label_threshold)
-    result_df=result_df.drop(drop_columns, axis=1)
+    #drop_columns=get_label_name(df,gv_df_label,label_threshold)
+    #result_df=result_df.drop(drop_columns, axis=1)
     
     
     return result_df 
@@ -328,6 +328,7 @@ def find_importance(segment,value,df,gv_df_label):
     df=df[df[segment]==value]
 
     top_label=find_top_label(df,gv_df_label)
+    df=image_label_generator(df,gv_df_label,label_threshold)
     analysis_df['label']=df[top_label]
     
     feature=copy.deepcopy(analysis_df)
@@ -382,6 +383,7 @@ def find_importance(segment,value,df,gv_df_label):
 #####       the column of the output dataframe are 'segment','feature','value'
 def find_label_feature(df,gv_df_label,segment):
     result_df = pd.DataFrame(columns=[segment,'feature','value'])
+    df=image_label_generator(df,gv_df_label,label_threshold)
     
     for segment_value in df[segment].unique():
         print segment_value
@@ -440,7 +442,8 @@ def find_label_feature(df,gv_df_label,segment):
 ##### output 
 #####       a label with the top importance percentage for the input dataframe.
 def find_top_label(df,gv_df_label):
-
+    df=image_label_generator(df,gv_df_label,label_threshold)
+    
     gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
     label_name=get_label_name(df,gv_df_label_filtered,label_threshold)
     importance_df=pd.DataFrame({'feature':pd.Series(label_name),

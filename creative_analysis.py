@@ -34,7 +34,7 @@ etungo_df=mydata[mydata.account_id == 1618494121752703]
 etungo_df=brand_column_generator(etungo_df,'大同|etungo')
 #pd.isnull(etungo_df).any(axis=0)
 etungo_df=metric_generator(etungo_df)
-etungo_df=image_label_generator(etungo_df,gv_df_label,label_threshold)
+#etungo_df=image_label_generator(etungo_df,gv_df_label,label_threshold)
 
 #etungo_df=keyword_generator(etungo_df,content_df,10)
 
@@ -99,13 +99,24 @@ final_feature=find_feature('age','18-24',etungo_df,gv_df_label)
 final_label=find_label_feature(etungo_df[etungo_df.age=='18-24'],gv_df_label,'age')
 #final_label=find_label_feature(etungo_df[etungo_df.gender=='female'],gv_df_label,'gender')
 
-top_label=find_top_label(df,gv_df_label)
+top_label=find_top_label(etungo_df,gv_df_label)
+
+
+
+
+
+
+
+
+
 
 ###################################################
 #####find the feature importance for each group ###
 ###################################################
 
 importance_df=find_importance('age','18-24',etungo_df,gv_df_label)
+
+
 
     
 #######################################################
@@ -126,8 +137,6 @@ feature_and_importance_3544 = find_feature_and_importance('age','35-44',etungo_d
 feature_and_importance_4554 = find_feature_and_importance('age','45-54',etungo_df,gv_df_label)
 feature_and_importance_5564 = find_feature_and_importance('age','55-64',etungo_df,gv_df_label)
 feature_and_importance_65 = find_feature_and_importance('age','65+',etungo_df,gv_df_label)
-
-
 
 
 ######################################################################
