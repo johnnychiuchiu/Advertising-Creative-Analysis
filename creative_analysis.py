@@ -7,8 +7,6 @@ import numpy as np
 from creative_function import *
 from initDataFrame import *
 
-
-
 ######################
 ##### 讀檔案進來 ##### 
 ######################
@@ -16,13 +14,10 @@ insightPath='../facebook_ad_report_ver3/insightData/age_gender_json_0217'
 googlevisionPath='../facebook_ad_report_ver3/insightData/with-x-y-google-vision_0217.json'
 
 mydata = initDataFrame(insightPath, googlevisionPath)
-mydata['account_name'] = mydata['account_name'].str.strip()
+#mydata['account_name'] = mydata['account_name'].str.strip()
+mydata=metric_generator(mydata)
 
 gv_df_label = gv_data_reader(googlevisionPath)
-
-content_df = keyword_data_reader(mydata, 'content')
-title_df = keyword_data_reader(mydata, 'title')
-subtitle_df = keyword_data_reader(mydata, 'subtitle')
 
 
 ######################################################################
@@ -33,10 +28,9 @@ subtitle_df = keyword_data_reader(mydata, 'subtitle')
 etungo_df=mydata[mydata.account_id == 1618494121752703]
 etungo_df=brand_column_generator(etungo_df,'大同|etungo')
 #pd.isnull(etungo_df).any(axis=0)
-etungo_df=metric_generator(etungo_df)
-#etungo_df=image_label_generator(etungo_df,gv_df_label,label_threshold)
 
-#etungo_df=keyword_generator(etungo_df,content_df,10)
+
+
 
 
 ########################################
@@ -44,7 +38,6 @@ etungo_df=metric_generator(etungo_df)
 ########################################
 
 best_ad=find_best_ad(etungo_df)
-
 
 
 ####################################################
@@ -56,37 +49,6 @@ best_ad_age=find_best_ad_by_segment(etungo_df,'age')
 
 a=find_ad_feature(etungo_df, gv_df_label, [6055843154405])
 #best_ad_gender_feature=find_ad_feature(etungo_df, gv_df_label, best_ad_gender.ad_id.unique().tolist())
-
-df=copy.deepcopy(etungo_df)
-ad_id=[6055843154405]
-
-df_backup = copy.deepcopy(df) # for keyword matching
-df_backup_adid=df_backup[df_backup['ad_id'].isin(ad_id)]
-content_column=content_df.columns[0]
-df_content_keyword=content_df[content_df[content_column].isin(df_backup_adid[content_column])].reset_index()
-df_content_keyword['keywords2']=df_content_keyword['keywords'][0][0:5]
-
-df_content_keyword['keywords2']=df_content_keyword.apply(lambda x: x['keywords'][0:5])
-
-df_content_keyword=df_content_keyword.rename(columns = {'keywords':'value'})
-df_content_keyword['feature']=content_column+'_keyword'
-del df_content_keyword['content']
-df_content_keyword['ad_id']=ad_id
-cols_sort=['ad_id','feature','value']
-df_content_keyword=df_content_keyword[cols_sort]
-
-
-##############################################
-#####filter and generate analyzing columns ###
-##############################################
-### ad related: title_brand, sub_title_brand, ad_content_brand, title_length_interval, sub_title_length_interval, ad_content_length_interval, call_to_action
-### ad performance related: age, gender, impression, click
-### google vision related: faceCount, majorColor, textInImage, logoInImage, adult, medical, spoof, violence, image category
-
-#etungo_df_analysis=column_selector(etungo_df,gv_df_label)
-#etungo_df_analysis.to_csv('etungo_df_analysis.csv', sep=',', encoding='utf-8')
-#pd.isnull(etungo_df_analysis).any(axis=0)
-
 
 
 #############################################

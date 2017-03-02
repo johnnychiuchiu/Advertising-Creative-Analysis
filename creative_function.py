@@ -210,7 +210,17 @@ def find_ad_feature(df,gv_df_label,ad_id):
     
     #get the content keyword feature for the targeted ad_id and append back to result_df
     df_adid_content_keyword_list=keyword_list_generator(df_adid, 'content')
-    row_data={'ad_id':ad_id[0],'feature':'content_keywords','value':pd.Series(df_adid_content_keyword_list['keywords'][0][0:5]).tolist()}
+    row_data={'ad_id':ad_id[0],'feature':'content_keywords','value':pd.Series(df_adid_content_keyword_list['keywords'][0][0:5]).tolist() if df_adid_content_keyword_list['keywords'][0]!=None else None}
+    result_df=result_df.append(row_data,ignore_index=True)
+
+    #get the title keyword feature for the targeted ad_id and append back to result_df
+    df_adid_title_keyword_list=keyword_list_generator(df_adid, 'title')
+    row_data={'ad_id':ad_id[0],'feature':'title_keywords','value':pd.Series(df_adid_title_keyword_list['keywords'][0][0:5]).tolist() if df_adid_title_keyword_list['keywords'][0]!=None else None}
+    result_df=result_df.append(row_data,ignore_index=True)
+
+    #get the subtitle keyword feature for the targeted ad_id and append back to result_df
+    df_adid_subtitle_keyword_list=keyword_list_generator(df_adid, 'subtitle')
+    row_data={'ad_id':ad_id[0],'feature':'subtitle_keywords','value':pd.Series(df_adid_subtitle_keyword_list['keywords'][0][0:5]).tolist() if df_adid_subtitle_keyword_list['keywords'][0]!=None else None}
     result_df=result_df.append(row_data,ignore_index=True)
 
     #get the image label feature for the targeted ad_id
@@ -530,10 +540,15 @@ def find_feature_and_importance(segment,value,df,gv_df_label):
 #####       targeted_column: the name of the targeted column, such as title, subtitle, content
 ##### output 
 #####       a data frame with unique targeted columns and its keywords
+def keyword_extracter(sentence):
+    if sentence!='':
+        return pd.DataFrame(jieba.analyse.extract_tags(sentence, topK=20, withWeight=True))[0].tolist()
+    else:
+        return None
 
 def keyword_data_reader(df, targeted_column):
     keyword_df = pd.DataFrame({targeted_column : pd.Series(df[targeted_column].unique())})
-    keyword_df['keywords']=keyword_df.apply(lambda x: pd.DataFrame(jieba.analyse.extract_tags(x[targeted_column], topK=20, withWeight=True))[0].tolist(), axis=1)
+    keyword_df['keywords']=keyword_df.apply(lambda x: keyword_extracter(x[targeted_column]), axis=1)
     
     return keyword_df
 
@@ -729,9 +744,6 @@ def best_ad_by_segment(campaign_id):
         
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    #campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
-    
-    #gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(campaign_data.ad_id.unique())]
     
     best_ad_gender=find_best_ad_by_segment(campaign_data,'gender')
     best_ad_age=find_best_ad_by_segment(campaign_data,'age')
@@ -748,7 +760,7 @@ def best_ad_by_segment(campaign_id):
         ad_feature=ad_feature[['feature','value']].T
         ad_feature.columns = ad_feature.iloc[0]
         ad_feature.drop(ad_feature.index[0:1], inplace=True)
-        ad_feature_dict=ad_feature.to_dict(orient='records')
+        ad_feature_dict=ad_feature.to_dict(orient='records') #automatically deduplicate
         
         result_df.loc[index]=pd.Series({'segment':df_adid['feature'][index],'value':df_adid['value'][index],
                                   'ad_id':df_adid['ad_id'][index],'feature':ad_feature_dict})

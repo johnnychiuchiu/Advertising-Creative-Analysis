@@ -94,7 +94,7 @@ def best_ad_by_segment(campaign_id):
         ad_feature=ad_feature[['feature','value']].T
         ad_feature.columns = ad_feature.iloc[0]
         ad_feature.drop(ad_feature.index[0:1], inplace=True)
-        ad_feature_dict=ad_feature.to_dict(orient='records')
+        ad_feature_dict=ad_feature.to_dict(orient='records') #automatically deduplicate
         
         result_df.loc[index]=pd.Series({'segment':df_adid['feature'][index],'value':df_adid['value'][index],
                                   'ad_id':df_adid['ad_id'][index],'feature':ad_feature_dict})
