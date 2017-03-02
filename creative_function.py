@@ -9,6 +9,7 @@ import jieba.analyse
 
 impression_threshold=1000
 label_threshold=100
+keyword_threshold=5
 
 ############################################ print_full ############################################ 
 ##### goal: print the full pandas data frame
@@ -306,7 +307,15 @@ def find_feature(segment,value,df,gv_df_label):
     final_label=find_label_feature(df_filtered,gv_df_label,segment)
     final_feature = pd.concat([final_feature, final_label])[['feature',segment,'value']] 
             
-    final_feature=final_feature.sort_values(by=[segment], ascending=True)
+    #merge the content label dataframe back to final_feature            
+    
+    #merge the title label dataframe back to final_feature            
+    
+    #merge the sutitle label dataframe back to final_feature            
+    
+            
+    
+    
     
 
     return final_feature
@@ -376,6 +385,76 @@ def find_importance(segment,value,df,gv_df_label):
     importance_df['percentage']=  importance_df.importance / importance_df.importance.sum()
 
     return importance_df
+
+############################################ find_keyword_feature ############################################ 
+##### goal: find the keyword feature for each dimension
+##### input
+#####       df: a table with all columns that are ready for analysis, it's different from find_importance's analysis_df
+#####       targeted_column: the name of the targeted column, such as title, subtitle, content
+#####       segment: a segment type, such as 'gender','age'
+##### output 
+#####       a dataframe that provides the top 5 keywords for the targeted dimension, such as {gender, age}.
+#####       the column of the output dataframe are 'segment','feature','value'
+def find_keyword_feature(df, targeted_column, segment):
+    result_df = pd.DataFrame(columns=[segment,'feature','value'])
+    df=keyword_column_generator(df, targeted_column, keyword_threshold)
+    
+    for segment_value in df[segment].unique():
+        print segment_value
+        keyword_name=get_keyword_name(df, targeted_column, keyword_threshold)
+        importance_df=pd.DataFrame({'feature':pd.Series(keyword_name),
+                            'max_impression':0,'max_click':0,'max_spend':0,'max_ctr':0,'max_cpc':0,'max_score':0,
+                            'min_impression':0,'min_click':0,'min_spend':0,'min_ctr':0,'min_cpc':0,'min_score':0,
+                            'importance':0})
+        
+        for name in keyword_name:
+            print name
+            f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
+            temp=df[df[segment]==segment_value].groupby([name]).agg(f).reset_index()
+            temp=temp[temp.impression>impression_threshold]
+            temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
+            temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0)
+        
+            if temp.shape[0]<=1:
+                importance_df=importance_df[importance_df.feature!=name]
+            else:
+                max_score= temp.score.max()
+                min_score= temp.score.min()
+                importance_df.importance[importance_df.feature==name]= max_score-min_score
+                importance_df.max_score[importance_df.feature==name]= max_score
+                importance_df.min_score[importance_df.feature==name]= min_score
+                importance_df.max_impression[importance_df.feature==name]= temp.impression[temp.score==max_score].values
+                importance_df.min_impression[importance_df.feature==name]= temp.impression[temp.score==min_score].values
+                importance_df.max_click[importance_df.feature==name]= temp.link_clicks[temp.score==max_score].values
+                importance_df.min_click[importance_df.feature==name]= temp.link_clicks[temp.score==min_score].values
+                importance_df.max_spend[importance_df.feature==name]= temp.spend[temp.score==max_score].values
+                importance_df.min_spend[importance_df.feature==name]= temp.spend[temp.score==min_score].values
+                importance_df.max_ctr[importance_df.feature==name]= temp.CTR[temp.score==max_score].values
+                importance_df.min_ctr[importance_df.feature==name]= temp.CTR[temp.score==min_score].values
+                importance_df.max_cpc[importance_df.feature==name]= temp.CPC[temp.score==max_score].values
+                importance_df.min_cpc[importance_df.feature==name]= temp.CPC[temp.score==min_score].values
+                    
+        importance_df=importance_df.sort_values(by=['importance'], ascending=False) 
+        importance_df['percentage']=  importance_df.importance / importance_df.importance.sum()
+        
+        row_data={segment:segment_value,'feature':targeted_column+'_keywords','value':list(importance_df['feature'][0:5])}
+        
+        temp=pd.DataFrame.from_dict(row_data,orient='columns')
+        temp=pd.DataFrame(temp.groupby([segment,'feature'])['value'].apply(list)).reset_index()
+        result_df=result_df.append(temp,ignore_index=True)
+    
+    return result_df
+
+
+############################################ find_top_keyword ############################################ 
+##### goal: find the name of the top content keyword
+##### input
+#####       df: a table with all columns including label that are ready for analysis, it's different from find_importance's analysis_df
+#####       gv_df_label
+##### output 
+#####       a content keyword with the top importance percentage for the input dataframe.
+
+
 
 
 
@@ -541,13 +620,20 @@ def find_feature_and_importance(segment,value,df,gv_df_label):
 ##### output 
 #####       a data frame with unique targeted columns and its keywords
 def keyword_extracter(sentence):
-    if sentence!='':
+    if sentence!='' and u' ':
         return pd.DataFrame(jieba.analyse.extract_tags(sentence, topK=20, withWeight=True))[0].tolist()
     else:
         return None
 
 def keyword_data_reader(df, targeted_column):
     keyword_df = pd.DataFrame({targeted_column : pd.Series(df[targeted_column].unique())})
+    #remove white space row
+    keyword_df[targeted_column].replace('', np.nan, inplace=True)
+    keyword_df[targeted_column].replace(' ', np.nan, inplace=True)
+    keyword_df[targeted_column].replace('  ', np.nan, inplace=True)
+    keyword_df = keyword_df[keyword_df[targeted_column].notnull()]
+    
+    #generate keywords column using keyword_extracter
     keyword_df['keywords']=keyword_df.apply(lambda x: keyword_extracter(x[targeted_column]), axis=1)
     
     return keyword_df
@@ -565,12 +651,11 @@ def keyword_data_reader(df, targeted_column):
 #####       a data frame with unique targeted columns and its keywords
 
 def get_keyword_name(df, targeted_column, keyword_threshold):
-    #targeted_column=keyword_df.columns[0]
-    #keyword_df = keyword_df[keyword_df[targeted_column].isin(df[targeted_column].unique())]
+
     keyword_df=keyword_data_reader(df,targeted_column)
-    
     keyword_flatten=flatten(keyword_df['keywords'])
     keyword_name=pd.Series(keyword_flatten).value_counts()[pd.Series(keyword_flatten).value_counts() >keyword_threshold].index
+    
     return keyword_name
 
 
@@ -637,31 +722,9 @@ def keyword_column_generator(df,targeted_column,keyword_threshold):
         keyword_df[keyword]=pd.Series([keyword in list for list in keyword_df['keywords']])
     
     del keyword_df['keywords']
-    result_df = pd.merge(df,keyword_df, on='content', how='left') 
+    result_df = pd.merge(df,keyword_df, on=targeted_column, how='left') 
 
     return result_df
-
-############################################ find_keyword_feature ############################################ 
-##### goal: find the keyword feature for each dimension
-##### input
-#####       df: a table with all columns that are ready for analysis, it's different from find_importance's analysis_df
-#####       targeted_column: the name of the targeted column, such as title, subtitle, content
-#####       segment: a segment type, such as 'gender','age'
-##### output 
-#####       a dataframe that provides the top 5 keywords for the targeted dimension, such as {gender, age}.
-#####       the column of the output dataframe are 'segment','feature','value'
-
-
-
-############################################ find_top_keyword ############################################ 
-##### goal: find the name of the top content keyword
-##### input
-#####       df: a table with all columns including label that are ready for analysis, it's different from find_importance's analysis_df
-#####       gv_df_label
-##### output 
-#####       a content keyword with the top importance percentage for the input dataframe.
-
-
 
 
 
@@ -698,7 +761,6 @@ def recommendation(campaign_id):
     
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    #campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     feature_and_importance_female = find_feature_and_importance('gender','female',campaign_data,gv_df_label)
     feature_and_importance_male = find_feature_and_importance('gender','male',campaign_data,gv_df_label)
