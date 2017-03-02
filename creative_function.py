@@ -196,48 +196,45 @@ def find_best_ad_by_segment(df,segment):
 ############################################ find_ad_feature ############################################ 
 ##### input
 #####       df: a data frame which columns contains ad_id and columns ready for analysis including label, such as etungo_df
-#####       ad_id: one specific ad_id
+#####       ad_id: one specific ad_id, such as [6055843154405]
 ##### output 
 #####       a dataframe contains the feature of this ad_id
 
-def find_ad_feature(df,gv_df_label,ad_id, content_df, title_df, subtitle_df):
-    #delete id, setting, and metrics related columns
-    df_backup = copy.deepcopy(df) # for keyword matching
-    dimension=['gender','age']
-    drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_goal',
-                        'campaign_id','creative_id','creative_url','fanpage',
-                        'fanpage_industry','impression','interest',
-                        'link_clicks','page_id','subtitle','title','content'
-                        'spend','CPC','CTR','score']
-    df=df.drop(drop_columns, axis=1)
+def find_ad_feature(df,gv_df_label,ad_id): 
+    #create an empty result df
+    columns = ['ad_id','feature','value']
+    result_df = pd.DataFrame(columns=columns)
     
-    #delete image label related columns
-    gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(df.ad_id.unique())]
-    drop_columns=get_label_name(df,gv_df_label_filtered,label_threshold)
-    df=df.drop(drop_columns, axis=1)
+    #filter df with ad_id
+    df_adid = df[df['ad_id'].isin(ad_id)]
     
-    df_adid=df[df['ad_id'].isin(ad_id)]
-    df_adid=df_adid.drop_duplicates()
-    df_adid=pd.melt(df_adid,id_vars=['ad_id'],var_name='feature')
-    
+    #get the content keyword feature for the targeted ad_id and append back to result_df
+    df_adid_content_keyword_list=keyword_list_generator(df_adid, 'content')
+    row_data={'ad_id':ad_id[0],'feature':'content_keywords','value':pd.Series(df_adid_content_keyword_list['keywords'][0][0:5]).tolist()}
+    result_df=result_df.append(row_data,ignore_index=True)
+
     #get the image label feature for the targeted ad_id
     gv_df_label_adid=gv_df_label[gv_df_label['ad_id'].isin(ad_id)]
     gv_df_label_adid=gv_df_label_adid.rename(columns = {'label':'value'})
     gv_df_label_adid['feature']='label'
     cols_sort=['ad_id','feature','value']
-    gv_df_label_adid=gv_df_label_adid[cols_sort]
+    row_data=gv_df_label_adid[cols_sort]
+    result_df=result_df.append(row_data,ignore_index=True)
+
+    #delete id, setting, and metrics related columns
+    dimension=['gender','age']
+    drop_columns=dimension+['account_id','account_name','ad_set_id','campaign_goal',
+                        'campaign_id','creative_id','creative_url','fanpage',
+                        'fanpage_industry','impression','interest',
+                        'link_clicks','page_id','subtitle','title','content',
+                        'spend','CPC','CTR','score']
+    df_adid=df_adid.drop(drop_columns, axis=1)
     
-    #get the content keyword feature for the targeted ad_id
-    df_backup_adid=df_backup[df_backup['ad_id'].isin(ad_id)]
-    content_column=content_df.columns[0]
-    df_content_keyword=content_df[content_df[content_column].isin(df_backup_adid[content_column])]
-    
-    
-    #append the result back
-    df_adid=df_adid.append(gv_df_label_adid,ignore_index=True)
-    
-    
-    return df_adid 
+    df_adid=df_adid.drop_duplicates()
+    row_data=pd.melt(df_adid,id_vars=['ad_id'],var_name='feature')
+    result_df=result_df.append(row_data,ignore_index=True)
+
+    return result_df 
     
 
 ############################################ column_selector ############################################ 
@@ -523,6 +520,7 @@ def find_feature_and_importance(segment,value,df,gv_df_label):
                                                     'min_spend',]]
     my_round=lambda x: x.round(2)
     feature_and_importance.loc[:,['percentage']] = feature_and_importance.percentage.map(my_round)                                                
+    feature_and_importance=feature_and_importance[feature_and_importance.percentage.notnull()]
     
     return feature_and_importance
 
@@ -532,6 +530,7 @@ def find_feature_and_importance(segment,value,df,gv_df_label):
 #####       targeted_column: the name of the targeted column, such as title, subtitle, content
 ##### output 
 #####       a data frame with unique targeted columns and its keywords
+
 def keyword_data_reader(df, targeted_column):
     keyword_df = pd.DataFrame({targeted_column : pd.Series(df[targeted_column].unique())})
     keyword_df['keywords']=keyword_df.apply(lambda x: pd.DataFrame(jieba.analyse.extract_tags(x[targeted_column], topK=20, withWeight=True))[0].tolist(), axis=1)
@@ -549,9 +548,11 @@ def keyword_data_reader(df, targeted_column):
 
 ##### output 
 #####       a data frame with unique targeted columns and its keywords
-def get_keyword_name(df, keyword_df, keyword_threshold):
-    targeted_column=keyword_df.columns[0]
-    keyword_df = keyword_df[keyword_df[targeted_column].isin(df[targeted_column].unique())]
+
+def get_keyword_name(df, targeted_column, keyword_threshold):
+    #targeted_column=keyword_df.columns[0]
+    #keyword_df = keyword_df[keyword_df[targeted_column].isin(df[targeted_column].unique())]
+    keyword_df=keyword_data_reader(df,targeted_column)
     
     keyword_flatten=flatten(keyword_df['keywords'])
     keyword_name=pd.Series(keyword_flatten).value_counts()[pd.Series(keyword_flatten).value_counts() >keyword_threshold].index
@@ -572,7 +573,7 @@ def get_keyword_name(df, keyword_df, keyword_threshold):
 #combine multiple list into one list
 #def flatten(l):
 #    return [item for sublist in l for item in sublist]
-
+'''
 def keyword_generator(df,keyword_df,keyword_threshold):
     targeted_column=keyword_df.columns[0]
     keyword_df_filtered = keyword_df[keyword_df[targeted_column].isin(df[targeted_column].unique())]
@@ -587,8 +588,43 @@ def keyword_generator(df,keyword_df,keyword_threshold):
     result_df = pd.merge(df,keyword_df, on='content', how='left') 
     
     return result_df
+'''
+
+############################################ keyword_list_generator ########################
+##### input
+#####       df: a data frame that is filtered and ready for analysis
+#####       targeted_column: the name of the targeted column, such as title, subtitle, content
+##### output 
+#####       a data frame with keywords column which contains a list of keywords extracted from the targeted column
+def keyword_list_generator(df,targeted_column):
+    
+    keyword_df=keyword_data_reader(df,targeted_column)
+    result_df = pd.merge(df,keyword_df, on=targeted_column, how='left') 
+    
+    return result_df
 
 
+############################################ keyword_column_generator ########################
+##### input
+#####       df: a data frame that is filtered and ready for analysis
+#####       targeted_column: the name of the targeted column, such as title, subtitle, content
+#####       keyword_threshold: the threshold for the label count, that is, the label count number
+#####                         should exceend the threshold to be included in the new column.
+##### output 
+#####       a data frame with each keyword columns which value are True/False
+
+def keyword_column_generator(df,targeted_column,keyword_threshold):
+    
+    keyword_df=keyword_data_reader(df,targeted_column)
+    keyword_name=get_keyword_name(df,targeted_column,keyword_threshold)
+    
+    for keyword in keyword_name:
+        keyword_df[keyword]=pd.Series([keyword in list for list in keyword_df['keywords']])
+    
+    del keyword_df['keywords']
+    result_df = pd.merge(df,keyword_df, on='content', how='left') 
+
+    return result_df
 
 ############################################ find_keyword_feature ############################################ 
 ##### goal: find the keyword feature for each dimension
@@ -647,7 +683,7 @@ def recommendation(campaign_id):
     
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
+    #campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     feature_and_importance_female = find_feature_and_importance('gender','female',campaign_data,gv_df_label)
     feature_and_importance_male = find_feature_and_importance('gender','male',campaign_data,gv_df_label)
@@ -693,7 +729,7 @@ def best_ad_by_segment(campaign_id):
         
     campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
     campaign_data=metric_generator(campaign_data)
-    campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
+    #campaign_data=image_label_generator(campaign_data,gv_df_label,label_threshold)
     
     #gv_df_label_filtered = gv_df_label[gv_df_label['ad_id'].isin(campaign_data.ad_id.unique())]
     
