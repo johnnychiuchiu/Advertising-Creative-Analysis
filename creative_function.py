@@ -211,17 +211,17 @@ def find_ad_feature(df,gv_df_label,ad_id):
     
     #get the content keyword feature for the targeted ad_id and append back to result_df
     df_adid_content_keyword_list=keyword_list_generator(df_adid, 'content')
-    row_data={'ad_id':ad_id[0],'feature':'content_keywords','value':pd.Series(df_adid_content_keyword_list['keywords'][0][0:5]).tolist() if df_adid_content_keyword_list['keywords'][0]!=None else None}
+    row_data={'ad_id':ad_id[0],'feature':'content_keywords','value':pd.Series(df_adid_content_keyword_list['keywords'][0][0:5]).tolist() if type(df_adid_content_keyword_list['keywords'][0])==list else None} 
     result_df=result_df.append(row_data,ignore_index=True)
-
+    
     #get the title keyword feature for the targeted ad_id and append back to result_df
     df_adid_title_keyword_list=keyword_list_generator(df_adid, 'title')
-    row_data={'ad_id':ad_id[0],'feature':'title_keywords','value':pd.Series(df_adid_title_keyword_list['keywords'][0][0:5]).tolist() if df_adid_title_keyword_list['keywords'][0]!=None else None}
+    row_data={'ad_id':ad_id[0],'feature':'title_keywords','value':pd.Series(df_adid_title_keyword_list['keywords'][0][0:5]).tolist() if type(df_adid_title_keyword_list['keywords'][0])==list else None}
     result_df=result_df.append(row_data,ignore_index=True)
-
+    
     #get the subtitle keyword feature for the targeted ad_id and append back to result_df
     df_adid_subtitle_keyword_list=keyword_list_generator(df_adid, 'subtitle')
-    row_data={'ad_id':ad_id[0],'feature':'subtitle_keywords','value':pd.Series(df_adid_subtitle_keyword_list['keywords'][0][0:5]).tolist() if df_adid_subtitle_keyword_list['keywords'][0]!=None else None}
+    row_data={'ad_id':ad_id[0],'feature':'subtitle_keywords','value':pd.Series(df_adid_subtitle_keyword_list['keywords'][0][0:5]).tolist() if type(df_adid_subtitle_keyword_list['keywords'][0])==list else None} 
     result_df=result_df.append(row_data,ignore_index=True)
 
     #get the image label feature for the targeted ad_id
@@ -308,15 +308,16 @@ def find_feature(segment,value,df,gv_df_label):
     final_feature = pd.concat([final_feature, final_label])[['feature',segment,'value']] 
             
     #merge the content label dataframe back to final_feature            
-    
+    final_content_keyword=find_keyword_feature(df_filtered,'content',segment)
+    final_feature = pd.concat([final_feature, final_content_keyword])[['feature',segment,'value']] 
+
     #merge the title label dataframe back to final_feature            
+    final_title_keyword=find_keyword_feature(df_filtered,'title',segment)
+    final_feature = pd.concat([final_feature, final_title_keyword])[['feature',segment,'value']] 
     
     #merge the sutitle label dataframe back to final_feature            
-    
-            
-    
-    
-    
+    final_subtitle_keyword=find_keyword_feature(df_filtered,'subtitle',segment)
+    final_feature = pd.concat([final_feature, final_subtitle_keyword])[['feature',segment,'value']] 
 
     return final_feature
 
@@ -342,11 +343,27 @@ def find_importance(segment,value,df,gv_df_label):
 
     analysis_df=analysis_df[analysis_df[segment]==value]
     df=df[df[segment]==value]
-
-    top_label=find_top_label(df,gv_df_label)
-    df=image_label_generator(df,gv_df_label,label_threshold)
-    analysis_df['label']=df[top_label]
     
+    #add label column to analysis_df
+    top_label=find_top_label(df,gv_df_label)
+    df_label=image_label_generator(df,gv_df_label,label_threshold)
+    analysis_df['label']=df_label[top_label]
+    
+    #add content keyword column to analysis_df
+    top_content_keyword=find_top_keyword(df,'content')
+    df_content=keyword_column_generator(df, 'content', keyword_threshold)
+    analysis_df['content_keywords']=df_content[top_content_keyword]
+    
+    #add title keyword column to analysis_df
+    top_title_keyword=find_top_keyword(df,'title')
+    df_title=keyword_column_generator(df, 'title', keyword_threshold)
+    analysis_df['title_keywords']=df_title[top_title_keyword]
+    
+    #add subtitle keyword column to analysis_df
+    top_subtitle_keyword=find_top_keyword(df,'subtitle')
+    df_subtitle=keyword_column_generator(df, 'subtitle', keyword_threshold)
+    analysis_df['subtitle_keywords']=df_subtitle[top_subtitle_keyword]
+
     feature=copy.deepcopy(analysis_df)
     feature=feature.drop(['impression','link_clicks','spend','CTR','CPC','score'], axis=1)
     importance_df=pd.DataFrame({'feature':feature.columns,
@@ -450,11 +467,49 @@ def find_keyword_feature(df, targeted_column, segment):
 ##### goal: find the name of the top content keyword
 ##### input
 #####       df: a table with all columns including label that are ready for analysis, it's different from find_importance's analysis_df
-#####       gv_df_label
 ##### output 
 #####       a content keyword with the top importance percentage for the input dataframe.
-
-
+def find_top_keyword(df, targeted_column):
+    df=keyword_column_generator(df, targeted_column, keyword_threshold)
+    
+    keyword_name=get_keyword_name(df, targeted_column, keyword_threshold)
+    importance_df=pd.DataFrame({'feature':pd.Series(keyword_name),
+                        'max_impression':0,'max_click':0,'max_spend':0,'max_ctr':0,'max_cpc':0,'max_score':0,
+                        'min_impression':0,'min_click':0,'min_spend':0,'min_ctr':0,'min_cpc':0,'min_score':0,
+                        'importance':0})
+    
+    for name in keyword_name:
+        print name
+        f = {'score': np.mean, 'impression': np.sum, 'link_clicks': np.sum, 'spend': np.sum }    
+        temp=df.groupby([name]).agg(f).reset_index()
+        temp=temp[temp.impression>impression_threshold]
+        temp=temp.assign(CTR=temp.link_clicks/temp.impression*1.0) 
+        temp=temp.assign(CPC=temp.spend/temp.link_clicks*1.0)
+    
+        if temp.shape[0]<=1:
+            importance_df=importance_df[importance_df.feature!=name]
+        else:
+            max_score= temp.score.max()
+            min_score= temp.score.min()
+            importance_df.importance[importance_df.feature==name]= max_score-min_score
+            importance_df.max_score[importance_df.feature==name]= max_score
+            importance_df.min_score[importance_df.feature==name]= min_score
+            importance_df.max_impression[importance_df.feature==name]= temp.impression[temp.score==max_score].values
+            importance_df.min_impression[importance_df.feature==name]= temp.impression[temp.score==min_score].values
+            importance_df.max_click[importance_df.feature==name]= temp.link_clicks[temp.score==max_score].values
+            importance_df.min_click[importance_df.feature==name]= temp.link_clicks[temp.score==min_score].values
+            importance_df.max_spend[importance_df.feature==name]= temp.spend[temp.score==max_score].values
+            importance_df.min_spend[importance_df.feature==name]= temp.spend[temp.score==min_score].values
+            importance_df.max_ctr[importance_df.feature==name]= temp.CTR[temp.score==max_score].values
+            importance_df.min_ctr[importance_df.feature==name]= temp.CTR[temp.score==min_score].values
+            importance_df.max_cpc[importance_df.feature==name]= temp.CPC[temp.score==max_score].values
+            importance_df.min_cpc[importance_df.feature==name]= temp.CPC[temp.score==min_score].values
+                
+    importance_df=importance_df.sort_values(by=['importance'], ascending=False).reset_index() 
+    importance_df['percentage']=  importance_df.importance / importance_df.importance.sum()
+    top_keyword=importance_df['feature'][0]
+    
+    return top_keyword
 
 
 

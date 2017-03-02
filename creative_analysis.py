@@ -26,7 +26,7 @@ gv_df_label = gv_data_reader(googlevisionPath)
 ###########################
 
 etungo_df=mydata[mydata.account_id == 1618494121752703]
-etungo_df=brand_column_generator(etungo_df,'大同|etungo')
+#etungo_df=brand_column_generator(etungo_df,'大同|etungo')
 #pd.isnull(etungo_df).any(axis=0)
 
 
@@ -55,20 +55,58 @@ a=find_ad_feature(etungo_df, gv_df_label, [6055843154405])
 #####find the best feature for each group ###
 #############################################
 
-final_feature=find_feature('age','18-24',etungo_df,gv_df_label)
-#final_feature.to_csv('final_feature.csv', sep=',', encoding='utf-8')
+final_feature=find_feature('gender','female',etungo_df,gv_df_label)
+
 
 final_label=find_label_feature(etungo_df[etungo_df.age=='18-24'],gv_df_label,'age')
-#final_label=find_label_feature(etungo_df[etungo_df.gender=='female'],gv_df_label,'gender')
+#final_label=find_label_feature(etungo_df,gv_df_label,'age')
+#top_label=find_top_label(etungo_df,gv_df_label)
 
-top_label=find_top_label(etungo_df,gv_df_label)
+#final_content_keyword=find_keyword_feature(etungo_df[etungo_df.age=='18-24'],'content','age')
+#top_keyword=find_top_keyword(etungo_df,'content')
+
+campaign_id='6060850543605,6059224129805,6059889803605,6059892762805,6059893654805,6057193158805,6055407354005,6053312447405,6051265864405,6051266212805,6049374949605,6035884102605,6035882865005,6034201296805,6034192331405,6033466101805,6032523746205,6033118372005,6033118372205,6032205731205,6032523746005,6032205730605,6031518441405,6031616546205,6031518442005,6031518441605,6031518441205,6031518441005,6032906211805,6032906682605,6032907243605,6032261374205,6032627603405,6032260651005,6032626832005,6032321919605,6032411410005,6032321128805,6032200009405,6031742821405,6031796276605,6031722773205'
+campaign_ids=campaign_id.split(',')
+campaign_ids = map(int, campaign_ids)
+    
+campaign_data=mydata[mydata.campaign_id.isin(campaign_ids)]
+campaign_data=metric_generator(campaign_data)
+
+best_ad_gender=find_best_ad_by_segment(campaign_data,'gender')
+best_ad_age=find_best_ad_by_segment(campaign_data,'age')
+
+gender_df=pd.melt(best_ad_gender,id_vars=['ad_id','impression','link_clicks','spend','CTR','CPC','score'],var_name='feature')
+age_df=pd.melt(best_ad_age,id_vars=['ad_id','impression','link_clicks','spend','CTR','CPC','score'],var_name='feature')
+df_adid = pd.concat([gender_df, age_df])
+df_adid=df_adid[['feature','value','ad_id']]
+df_adid = df_adid.reset_index(drop=True)
+result_df = pd.DataFrame(columns=['segment','value','ad_id','feature'])
+
+index=1
+ad_id=6031616548405
+
+ad_feature=find_ad_feature(campaign_data, gv_df_label, [ad_id])
+ad_feature=ad_feature[['feature','value']].T
+ad_feature.columns = ad_feature.iloc[0]
+ad_feature.drop(ad_feature.index[0:1], inplace=True)
+ad_feature_dict=ad_feature.to_dict(orient='records') #automatically deduplicate
+
+result_df.loc[index]=pd.Series({'segment':df_adid['feature'][index],'value':df_adid['value'][index],
+                          'ad_id':df_adid['ad_id'][index],'feature':ad_feature_dict})
 
 
+for index,ad_id in enumerate(df_adid['ad_id']):
+    ad_feature=find_ad_feature(campaign_data, gv_df_label, [ad_id])
+    ad_feature=ad_feature[['feature','value']].T
+    ad_feature.columns = ad_feature.iloc[0]
+    ad_feature.drop(ad_feature.index[0:1], inplace=True)
+    ad_feature_dict=ad_feature.to_dict(orient='records') #automatically deduplicate
+    
+    result_df.loc[index]=pd.Series({'segment':df_adid['feature'][index],'value':df_adid['value'][index],
+                              'ad_id':df_adid['ad_id'][index],'feature':ad_feature_dict})
 
-
-
-
-
+result_df['ad_id'] = map(int, result_df['ad_id'])
+result_json=result_df.to_dict(orient='records')
 
 
 
@@ -76,9 +114,7 @@ top_label=find_top_label(etungo_df,gv_df_label)
 #####find the feature importance for each group ###
 ###################################################
 
-importance_df=find_importance('age','18-24',etungo_df,gv_df_label)
-
-
+importance_df=find_importance('gender','female',etungo_df,gv_df_label)
 
     
 #######################################################
@@ -99,6 +135,9 @@ feature_and_importance_3544 = find_feature_and_importance('age','35-44',etungo_d
 feature_and_importance_4554 = find_feature_and_importance('age','45-54',etungo_df,gv_df_label)
 feature_and_importance_5564 = find_feature_and_importance('age','55-64',etungo_df,gv_df_label)
 feature_and_importance_65 = find_feature_and_importance('age','65+',etungo_df,gv_df_label)
+
+
+
 
 
 ######################################################################
